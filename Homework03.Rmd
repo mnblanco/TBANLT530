@@ -32,7 +32,7 @@ plotHistFunc <- function(x, f = "dodgerblue", na.rm = TRUE, ...) {
 }
 ```
 
-# Chapter K-Nearest Negighbor
+# Chapter: K-Nearest Negighbor
 
 ## Problem 12
 

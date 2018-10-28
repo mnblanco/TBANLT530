@@ -16,8 +16,9 @@ library(SciencesPo)
 library(ggplot2)
 library("moments")
 ```
+# Homework 01
 
-# 01 Identify Data Mining Task(s)
+## 01 Identify Data Mining Task(s)
 
 a. Estimation, the target is the number of points.
 
@@ -30,8 +31,7 @@ d. Clustering, the target are the groups that have similar donation profile to f
 e. Classification, the target is to classify sequence of financial and residential move as indicator for potential terrorist acts.
 
 f. Prediction, the target is the expeect change in stock price for companies with similar price/earning ratios.  
-
-# Stock Price Data
+### Stock Price Data
 
 ```{r}
 stock <- data.frame(c(10,7,20,12,75,15,9,18,4,12,8,14))
@@ -39,7 +39,7 @@ colnames(stock) <- c("price")
 stock
 ```
 
-# 13 Measures of Central Tendencies 
+## 13 Measures of Central Tendencies 
 
 ```{r}
 getmode <- function(v) {
@@ -62,7 +62,7 @@ getmode(stock$price)
 summary(stock$price)
 ```
 
-#14 Standard deviation
+## 14 Standard deviation
 
 The mode of the stock price is `r sd(stock$price)`
 
@@ -91,7 +91,7 @@ ggplot(stock) +
 
 The distribution is right skewed, having a tail on the right direction and a single peak.  The mean is pulled in the direction of the tail.  The median falls between the mode and the mean.
 
-#15 Min-Max
+## 15 Min-Max
 
 ```{r}
 mi <- min(stock$price)
@@ -113,7 +113,7 @@ ggplot(stock) +
 
 ```
 
-#16 Midrange
+## 16 Midrange
 
 ```{r}
 getmidrange <- function(v) {
@@ -127,7 +127,7 @@ The midrange of the stock price is `r getmidrange(stock$price)`
 getmidrange(stock$price)
 ```
 
-#17 Standardize Z-Score 
+## 17 Standardize Z-Score 
 
 ```{r}
 getzscore <- function(v, value) {
@@ -141,7 +141,7 @@ The Standardize Z-Score for `$20` is `r getzscore(stock$price, 20)`
 getzscore(stock$price, 20)
 ```
 
-#18 Decimal Scaling
+## 18 Decimal Scaling
 
 ```{r}
 getscaling <- function(value) {
@@ -155,7 +155,7 @@ The Standardize Z-Score for `$20` is `r getscaling(20)`
 getscaling(20)
 ```
 
-#19 Skewness
+## 19 Skewness
 
 ```{r}
 getskewness <- function(v) {
@@ -169,12 +169,12 @@ The skewness of the stock price is  is `r getskewness(stock$price)`
 getskewness(stock$price)
 ```
 
-# 20 Reasons to Normalize numeric variales
+## 20 Reasons to Normalize numeric variales
 
 Data normalization is the process of rescaling numeric variable(s) to 0 to 1 range.
 Normalization is a good technique to use when the distribution of data is unkown or when the distribution is not Gaussian.  Many machine learning algorithms expect normalized data.
 
-# 21 Standard normal distributions
+## 21 Standard normal distributions
 
 Normal distributions are:
 
@@ -196,7 +196,7 @@ densities<-dnorm(xseq, 0,1)
 plot(xseq, densities, col="darkgreen",xlab="", ylab="Density", type="l",lwd=2, cex=2, main="Standard Normal", cex.axis=.8)
 ```
 
-# 22 Symmetric distribution counter example
+## 22 Symmetric distribution counter example
 
 A symmetric distribution does not ensure normality.
 
@@ -212,7 +212,7 @@ plot(x,y,type="l",xlim=c(0,6),ylim=c(0,0.4),lwd=2,ylab="p")
 polygon(c(1,x,5),c(0,y,0),col="lightgray",border=NA)
 ```
 
-# 23 QQ plot
+## 23 QQ plot
 
 The QQ plot is a graphical tool used to assess if a data distribution is normal or exponential.  If data is normally distributed, the QQ plot points will fall close to a straight line. 
 
@@ -226,12 +226,11 @@ qqline(stock$pric,
        col = "blue")
 ```
 
-# 24 Outliers
+## 24 Outliers
 
 The z-score for stock price `$75` is `r getzscore(stock$price, 75)`.  This data point is an extreme outlier.
 
 The stock price `$75` is an outlier based on IQR method, since 75 > `r quantile(stock$price, .75) + 1.5 * IQR(stock$price)`
-
 
 ```{r}
 ggplot(data = stock, aes(x="Stock Price", y=price))+
@@ -254,7 +253,7 @@ lower
 upper
 ```
 
-# 25 Outliers
+## 25 Outliers
 
 The following are outliers based on Z-score and IQR method:
 
@@ -266,7 +265,7 @@ stock$price[stock$price < lower | stock$price > upper]
 stock$price[stock$z.price < -3 | stock$z.price > 3]
 ```
 
-# 26 Outlier removal effect
+## 26 Outlier removal effect
 
 The median did not change but the mean decreased.  Outlier are values out of line with the normal data set. The outlier can push the mean of the data out of its usual position.
 
@@ -278,9 +277,9 @@ summary(stock$price)
 summary(stock[stock$price < 75, 1])
 ```
 
-#33 Missing data
+## 33 Missing data
 
-# Read dataset
+### Read dataset
 
 ```{r}
 churn <- read.csv("churn.txt", stringsAsFactors = FALSE)
@@ -293,7 +292,7 @@ any(is.na(churn))
 str(churn)
 ```
 
-#34 Compare Area Code and State
+## 34 Compare Area Code and State
 
 There is an apparent abnomality between the number of area code and state.  Based on the number of states, I expected to see more than just 3 unique area code.
 
@@ -312,7 +311,7 @@ ggplot(churn, aes(x=State)) +
   labs(caption = "(Source: Data Mining and Predictive Analytics)") 
 ```
 
-#35 Outlier determination
+## 35 Outlier determination
 
 ```{r, warning=FALSE}
 ggplot(data = churn, aes(x="Customer Service Calls", y=CustServ.Calls))+
@@ -340,7 +339,7 @@ upper
 churn$CustServ.Calls[churn$CustServ.Calls < lower | churn$CustServ.Calls > upper]
 ```
 
-#37 Z-Score Standardization
+## 37 Z-Score Standardization
 
 ```{r}
 m <- mean(churn$Day.Mins)
@@ -387,7 +386,7 @@ ggplot(data = churn, aes(x=z.Day.Mins))+
   annotate("text", label = "Extreme", x = -3.4, y = 260, size = 4, colour = "red", angle = 90)
 ```
 
-#38 Skewness
+## 38 Skewness
 
 The Day Minutes data is skewed to the right since the median < mean.  The skewness for this data is nearly symmetric.  If the original distribution is positively skewed the distribution of Z-scores also will be positively skewed.
 
@@ -398,7 +397,7 @@ skewness2 <- 3 * (mean(z.Day.Mins) - median(z.Day.Mins))/sd(z.Day.Mins)
 skewness2
 ```
 
-#39 Normal probabilty plot
+## 39 Normal probabilty plot
 
 ```{r}
 qqnorm(churn$Day.Mins,
@@ -409,7 +408,7 @@ qqline(churn$Day.Mins,
        col = "blue")
 ```
 
-# 40 International Minutes
+## 40 International Minutes
 
 The QQ pot for international minutes can be used to determine the data is not normal distributed.  Not all the value lie on the line.  There is a heavy tail on the bottom of the plot and a subtle tail on the top of the plot.  The points on the extreme ends of the plot are preventing the data from being normally distributed.
 
@@ -486,7 +485,7 @@ summary(churn_new)
 summary(churn_new_o)
 ```
 
-# 41 Z-Score Standardized
+## 41 Z-Score Standardized
 
 ```{r}
 churn$Night.Mins.Z <- (churn$Night.Mins-mean(churn$Night.Mins))/sd(churn$Night.Mins)

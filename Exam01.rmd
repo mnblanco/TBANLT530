@@ -1,0 +1,523 @@
+---
+title: "TBANLT 560 Data Mining Midterm Exam"
+author: "Marjorie Blanco"
+date: "February 11, 2018"
+output:
+  word_document:
+    toc: yes
+  html_document:
+    number_sections: yes
+    toc: yes
+    toc_float: yes
+---
+
+```{r setup, include=FALSE, warning=FALSE, error=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+library(ggplot2)
+library(dplyr)
+library(corrplot)
+library(GGally)
+library(tidyr)
+```
+
+```{r, echo=FALSE, warning=FALSE, error=FALSE}
+plotPointFunc <- function(df, na.rm = TRUE, ...) {
+    p <- ggplot() +
+      geom_point(data=df, aes(x = df$x, y = df$y)) +
+      theme_grey() +
+      ggtitle("Sample Error vs. Sample Size") +
+      ylab("Sample Error") +
+      xlab("Sample Size")
+    print(p)
+}
+
+plotDensFunc <- function(df, na.rm = TRUE, ...) {
+  nm <- names(df)
+  for (i in seq_along(nm)) {
+    p <- ggplot(data=df, aes_string(x = nm[i])) +
+      geom_density(alpha=.3, fill="dodgerblue")
+        print(p)
+  }
+}
+
+plotHistFunc <- function(df, f = "dodgerblue", na.rm = TRUE, ...) {
+  nm <- names(df)
+  for (i in seq_along(nm)) {
+    p <- ggplot(df,aes_string(x = nm[i])) + 
+      geom_histogram(alpha = .5, fill = f) 
+    print(p)
+  }
+}
+
+plotBarFunc <- function(x, na.rm = TRUE, ...) {
+  nm <- names(x)
+  for (i in seq_along(nm)) {
+    p <- ggplot(x,aes_string(x = nm[i])) + 
+      geom_bar(alpha = .5, fill = flag) +
+      scale_x_log10()
+    print(p)
+  }
+}
+
+NA2mean <- function(x) replace(x, is.na(x), mean(x, na.rm = TRUE))
+
+NA2median <- function(x) replace(x, is.na(x), median(x, na.rm = TRUE))
+
+Zero2median <- function(x) replace(x, x==0, median(x, na.rm = TRUE))
+
+
+getCor <- function(x, val = 0) {
+  z <- cor(x, use = "na.or.complete")
+  zdf <- as.data.frame(as.table(z))
+  zdf <- arrange(zdf,desc(Freq))
+  print(zdf[zdf$Freq  > val & zdf$Var1 !=zdf$Var2 ,])
+}
+```
+
+# Problem 1
+
+A hospital in interested in learning about the risk of readmission for people who were treated for a specific chronic ailment.  They want to know what contributes to an individual’s risk of readmission.  Risk of readmission is based on the likelihood that the person will come back to the hospital within a short period of time.  There are several data mining tasks that are relevant in this situation.  Discuss the relevant ones and how the analysis may be of value to the hospital.
+
+- Description
+
+The hospital might want to describe pattern and trends such as percentage of readmission of patients who were treated for a specific chronic ailment. at hospital and department (speciality) level over a period of time (year, quaterly, monthly).
+
+- Estimation
+
+The hospital might want to estimate the number of readmission of patients who were treated for a specific chronic ailment.
+
+- Prediction
+
+The hospital might want to predict the likelyhood of readmission of patients who were treated for a specific chronic ailment given certain factors such as age, bmi, etc.
+
+- Classification
+
+The hospital might want to classify the risk of readmission (low, medium, high) of patients who were treated for a specific chronic ailment.
+
+
+One big problem in healthcare is the rising cost of patient readmission.  If a patient is determined to be at high risk for readmission, a return trip to the hospital could be prevented by providing additional interventions.  This will not only drive cost down bu also improve quality of care.
+
+# Problem 2
+
+A. Describe a situation where you want to keep outliers. Describe one where you don’t. Give an example of each.  
+
+Before removing outliers we should determine the impact.  We should analyze a data set twice.  Once with and once without the outlier and  observe differences in the results.
+
+Extreme outliers should be investigate in order to understand what caused them. The outliers can be used to identify measurement errors or data entry errors.  Outliers that were identified as caused by data entry errors should not be removed but instead should be corrected.
+
+Data set: Employee age
+
+In this case, there are two dat entry errors (identified as outliers) in our data set.  The best way to fix the error.
+
+Data set: Employee salary
+
+In this case, the salary of a director (identified as outliers) was included in our non magement data set.  The best way to fix the error is to remove the outliers.
+
+```{r}
+age <- c(40,59,30,0,25,56,0)
+salary <- c(110,130,90,15000,80,128,110)
+df <- data.frame(age,salary)
+
+summary(df$age)
+df$age_new <- Zero2median(df$age)
+summary(df$age_new)
+
+
+summary(df$salary)
+df <- df[c(1:3,5:7),]
+summary(df$salary)
+```
+
+
+B. Missing data can be problematic.  There are several ways for handling missing data. 
+Given the following table define two data imputation methods for filling in the missing values.
+
+NOTE:  You will want to implement your methods and fill in the missing values in the table.
+
+This data set is very small, therefore it is not recomended to simply omit the cases with missing data.
+
+- Mean substitution
+
+In this process the mean value of a variable is used in place of the missing data value for that same variable.
+
+- Median substitution
+
+In this process the median value of a variable is used in place of the missing data value for that same variable.
+
+- Regression imputation
+
+In this process the missing value is replaced with estimated values. This approach preserves all cases by replacing the missing data with a probable value estimated by other available information. 
+
+```{r}
+df2 <- read_excel('Midterm/data1.xlsx')
+df2
+summary(df2)
+```
+
+```{r, warning=FALSE, error=FALSE}
+apply(is.na(df2), 2, any)
+getCor(df2[,2:9])
+
+df2$DATA3
+df2$DATA3 <- NA2mean(df2$DATA3)
+df2$DATA3
+
+df2$DATA5
+df2$DATA5 <- NA2median(df2$DATA5)
+df2$DATA5
+
+apply(is.na(df2), 2, any)
+getCor(df2[,2:9])
+```
+
+```{r}
+summary(df2)
+```
+
+# Problem 3
+
+A. Discuss how you would use histograms for exploring variables?  Why do you use an overlay?
+
+During EDA, histograms are used to visualize the distribution of data (normal, binomial, hyperbolic, etc).  Histograms are easy to understand and can be used to learn about the data.  Histogram can also be used to determine shape (symmetric, left skewed, right skewed), find minimum/maximum/median values, and determine the spread.
+Outliers can easily be identified using a histogram.  Overlay can be used to compare the distribution of two or more variables.  
+
+```{r}
+plotHistFunc(df2[,4])
+plotDensFunc(df2[,4])
+
+df2$flag <- sample(c(0,1), nrow(df2), replace = TRUE)
+df2$flag <- as.factor(df2$flag)
+
+
+ggplot(data=df2, aes(x=DATA3, fill=flag,  colour=flag)) +
+  geom_density(alpha=.4)
+```
+
+B. The following contingency table provides data for a diet and health study.    The null hypothesis is the diet has no relationship with  health outcome.  Conduct a Chi Square test to determine whether to reject or accept the null hypothesis.
+
+$$
+\begin{eqnarray}
+H_o: P\ cancers,aha = P\ cancers,med \\
+P\ fhd,aha = P\ fhd,med \\
+P\ nfhd,aha = P\ nfhd,med \\
+H_a: At\ least \ one  \ of \ the \ claims \ in H_o \ is \ wrong.
+\end{eqnarray}
+$$
+
+```{r}
+outcome <- c("Cancers", "FHD", "NFHD", "Healthy")
+AHA <-	c(15,24,25,239)
+Mediterranean	<- c(7,14,8,273)
+
+df3 <- data.frame(AHA,Mediterranean)
+df3 <- t(df3)
+colnames(df3) <- outcome
+
+Xsq_data <- chisq.test(df3)
+Xsq_data$statistic
+Xsq_data$p.value
+Xsq_data$expected
+```
+
+The Chi Square is (`r round(Xsq_data$statistic,2)`). The p-value `r Xsq_data$p.value` is extremly small, therefore we reject the null hypothesis of no relationship between diet and outcome in favor of the alternative of relationship between diet and outcome. There is sufficient evidence that at least one of the claims in Ho is wrong and there is signficant differences exist between proportions of the two data sets.
+
+C. Assuming that you have dealt with missing values in  Question 2, conduct correlation analysis of the variables for the data in Question 2.   
+
+Post your table here.
+
+```{r}
+df2[is.na(df2)] <- 0
+getCor(df2[,2:9])
+corrplot(cor(df2[,2:9]),
+        method="number",
+        tl.cex=.65, 
+        col=colorRampPalette(c("blue","grey","red"))(200))
+
+GGally::ggpairs(cor(df2[,2:9]), axisLabels="none")
+```
+
+# Problem 4
+
+Again using the revised data table from Question 2, generate the covariance matrix.   Generate the correlation matrix.  Post your tables here.
+
+```{r}
+cov(df2[,2:9])
+```
+
+# Problem 5
+
+Below is the output from a PCA.  
+
+A. How many principal components should we use?  Explain.
+
+I recomend that we use three principal components.  
+
+- The Eigenvalue Criterion:
+
+Retain components 1-3 since they have eigenvalues greater than 1.
+
+- The Proportion of Variance Explained Criterion
+
+Components 1-3 account for a solid 84.1% of the variability in the data set.  Adding component 4 gives us 90.7%   Component 1 explains 44.3% of the variability, Component 2 26.6% of the variability and Component 2 13.1% of the variability.  Retain components 1-3.
+
+B. Discuss the weights for the first four PCs – PC1 to PC4.  How do we interpret them?
+
+|Component|Total Variance|Correlation|Note|Label|
+|:------|:------|:------|:------|:------|
+|PC1|44.3%|Positive|Age (0.484), Residence (0.466), Employ (0.459), and Savings (0.404)|Financial stability|
+|PC2|71.0%|Negative|Debt (-0.585), Credit cards (-0.452)|Financial debt|
+|PC3|84.1%|Negative|Incom (-0.676), Credit cards (-0.468), Education (-0.401)| Income, debt and Academic |
+|PC4|90.7%|Positive & Negative|Credit cards (0.703), Savings(0.436)| |
+
+C. Using the Factor loading table below,  identify the latent factors and give them a label.  Justify your labels.
+
+Factor1 to Factor4 explain 75.4% of the variability in the data set.
+
+|Factor|Latent Factors|Loading|Label|
+|:------|:------|:------|:------|
+|Factor1|Company Fit (0.778), Job Fit (0.844), and Potential (0.645)|Positive|Employee company/job fit and  growth potential|
+|Factor2|Appearance (0.730), Likeability (0.615), and Self-confidence (0.743)|Positive|Soft skills|
+|Factor3|Communication (0.802), Organization (0.889)|Positive|Business Skills|
+|Factor4|Letter (0.947), Resume (0.789)|Positive|Writing skills|
+
+# Problem 6
+
+A. For the given data below (pounds of beef consumed) determine the t-confidence interval estimate.
+
+```{r}
+df2 <- read_excel('Midterm/data2.xlsx', col_names = FALSE)
+df2
+
+#Testing an 90% confidence level
+x90 <- t.test(df2$X0,conf.level = 0.9)
+x90
+```
+
+We are 90% confident that the true mean of the pounds of beef consumed is between `r round(x90$conf.int[1],2)` and `r round(x90$conf.int[2],2)`.
+
+```{r}
+#Testing an 95% confidence level
+x95 <- t.test(df2$X0,conf.level = 0.95)
+x95
+```
+
+We are 95% confident that the true mean of the pounds of beef consumed is between `r round(x95$conf.int[1],2)` and `r round(x95$conf.int[2],2)`.
+
+```{r}
+#Testing an 99% confidence level
+x99 <- t.test(df2$X0,conf.level = 0.99)
+x99
+```
+
+We are 99% confident that the true mean of the pounds of beef consumed is between `r round(x99$conf.int[1],2)` and `r round(x99$conf.int[2],2)`.
+
+B. Assume we want a 95% confidence interval, and that we have a standard deviation of 1.315 for all sample sizes.  What will be the margin of error for the following sample sizes – 10, 20, 50, 100, 500, 1000, 10000? Provide a plot of this.
+
+As expected the sample margin of error decreases as the sample size increases.
+
+```{r}
+sd <- 1.315
+sample_size <- c(10, 20, 50, 100, 500, 1000, 10000)
+df <- data.frame(sample_size)
+
+getError <- function(N, sd)
+{
+  error <- qt(0.975, df=N-1) *  sd/sqrt(N)
+}
+
+y <- apply(df , 1, function(x) getError(x,sd))
+
+df <- data.frame(sample_size,y)
+colnames(df) <- c("x","y")
+
+plotPointFunc(df)
+```
+
+# Problem 7
+
+A. Half Foods has two grocery stores located in Gig Harbor.  One store is located on First Street and the other on Main Street.   Each store is run by a different manager.  Each manager claims that their store's layout maximizes the amount that customers will purchase on impulse.  A survey  of a sample of  customers identified how much more each customer spent than what they had planned to spend.  We are assuming that the difference is due to impulse.   Given the following table with the sample data collected from the two stores, conduct a t-test for differences in means.  The null hypothesis is that there is not difference.  Can we reject it? 
+
+$$
+\begin{eqnarray}
+H_0: \mu_1 = \mu_2 \\
+H_a: \mu_1 \neq \mu_2
+\end{eqnarray}
+$$
+
+```{r}
+df3 <- read_excel('Midterm/data3.xlsx', col_names = TRUE)
+df3
+test_result <- t.test(df3$`First Street`, df3$`Main Street`)
+test_result
+```
+
+The p-value is `r round(test_result$p.value,2)` > 0.05.  We fail to reject the null hypothesis in favor of the alternative .
+
+B.  A test was conducted to see if the mean pressure applied to the driver’s head during a crash test is equal for each types of car. The data is give in the table below.  
+
+Ho: The mean driver's head pressure is statistically equal across the three types of cars.
+
+Ha: At least one mean driver's head pressure is not statistically equal. 
+
+$$
+\begin{eqnarray}
+H_0: \mu_compact = \mu_midsize = \mu_full-size \\
+H_a: \mu_compact \neq \mu_midsize \neq \mu_full-size \\
+\end{eqnarray}
+$$
+
+```{r}
+df4 <- read_excel('Midterm/data4.xlsx', col_names = TRUE)
+df4
+dfs <- df4 %>% gather(type, pressure )
+
+dfs
+
+model = lm(pressure  ~ type, 
+           data=dfs)
+
+p <- ggplot(data=dfs, aes(x=type, y=pressure )) +
+  geom_boxplot()
+
+p
+
+anova.result <- aov(pressure  ~ type, data=dfs)
+summary(anova.result)
+
+
+hist(residuals(model), 
+     col="darkgray")
+```
+
+An ANOVA was conducted with  α =  5%.     The ANOVA results are below:
+
+Based on the information provided interpret the results.  The null hypothesis is that there is no difference in the means.  If you reject the null hypothesis, that means at least two of the car types are different in the means in that case determine which types of cars that are statistically different in the means.  
+
+Reject the null hypothesis if: F  > F crit. Th F test statistic (25.17) is greater than F crtical value (5.14), therefore we reject the null hypothesis in favor of the alternative that at least one mean pressure is not statistically equal.
+
+We are 95% confident that the driver mean driver's head pressure is not statistically equal for compact, midsize, and full-size cars.
+
+# Problem 8
+
+Using the data set 2 for Homework one –
+A.	 Split the data into 10 equal (roughly)  partitions.  That means that you will have 633/10 records in each partition.  Determine the number of records with a value of BK = 0 in each partition – how many a value of BK = 0 in each partition.
+
+```{r}
+df <- read_excel("~/R/DataMining/Project/AAERDATAHWPart2.xlsx")
+df$bktype <- as.integer(df$bktype)
+
+N <- 10
+bins  <- rep(1:N, nrow(df[1:630,]) / N)
+split(df[1:630,], bins)
+
+bins  <- append(rep(1:N, nrow(df) / N),rep(1:3))
+df_split <- split(df, bins)
+df$partition <-  bins
+
+df %>% select(partition,  bktype)  %>% group_by(partition, bktype) %>% summarise(Count = n())
+```
+
+B.	Generate a subset of the data set with all the records that have a value of BK = 0 (should be 79)  and an equal number of BK=1 (randomly selected from the remaining records, BK=1).    Calculate the mean for DATA1 for each type BK=0, BK=1.
+
+```{r}
+df1 <- df %>% select(bktype, DATA1)  %>% group_by(bktype) %>% summarise(Mean = mean(DATA1), Count = n())
+df1
+
+set.seed(10)
+dfs <- sample_n(df, 63)
+
+df1 <- dfs %>% select(bktype, DATA1)  %>% group_by(bktype) %>% summarise(Mean = mean(DATA1))
+df1
+```
+
+C.	Conduct a t test for difference in the means of the two groups in the subset.  Put your results here.
+
+$$
+\begin{eqnarray}
+H_0: \mu_1 = \mu_2 \\
+H_a: \mu_1 \neq \mu_2
+\end{eqnarray}
+$$
+
+```{r}
+set1 <- df[df$bktype == 0,]
+set2 <- df[df$bktype == 1,]
+test_result <- t.test(set1$DATA1, set2$DATA1)
+test_result
+```
+
+The p-value is `r round(test_result$p.value,2)` < 0.05.  We reject the null hypothesis in favor of the alternative. The true difference in means is not equal to 0.  We are 95% confident that the true difference in means is not equal to 0 because it is between `r round(test_result$conf.int[1],2)` and `r round(test_result$conf.int[2],2)`.
+
+```{r}
+set1 <- dfs[dfs$bktype == 0,]
+set2 <- dfs[dfs$bktype == 1,]
+
+test_result <- t.test(set1$DATA1, set2$DATA1)
+test_result
+```
+
+The p-value is `r round(test_result$p.value,2)` > 0.05.  We fail to reject the null hypothesis in favor of the alternative.  The true difference in means is not equal to 0.  We are 95% confident that the true difference in means can be equal to 0 because the it is between `r round(test_result$conf.int[1],2)` and `r round(test_result$conf.int[2],2)`. 
+
+# Problem 9
+
+Using a data set that related stopping distance and speed, the following is the result of conducting linear regression on the results:   
+
+Provide an interpretation of the results.    
+
+$$ y (stopping distance) = 3.9324 (speed) - 17.5791 $$
+
+For every 1-unit increase in speed, the stopping distance increases by 3.9324 when other variables are held fixed. When speed is zero, the stopping distance is -17.5791.
+
+The p-value of the F-Test is 1.49e-12 which is less than 0.05.  The model is significant.  The coefficient of determination (Adjusted R-Square) is 0.6438, thus this regression model explains 64.38% of the total variation from the original data.  The remaining variation is due to other factors that were not included in the model.
+
+The explanatory variable speed has p-value that is than the significance level of 0.05 therefore is statistically significant.
+
+If I have a speed of  12 miles per hour, what will my stopping distance be?
+
+```{r}
+b0 <- -17.579
+b1 <- 3.9324
+speed <- 12
+y <- b0 + b1 * speed
+```
+
+The stopping distance will be `r y` miles.
+
+# Problem 10
+
+$$ y (wrinkle resistance) = 0.15453 (Conc) + 0.21705 (Ratio) + 0.010806 (Temp) + 0.09464 (Time) -0.7560 $$
+
+A. A research chemist wants to understand how several predictors are associated with the wrinkle resistance of cotton cloth. The chemist examines 32 pieces of cotton cellulose produced at different settings of curing time, curing temperature, formaldehyde concentration, and catalyst ratio. The durable press rating, a measure of wrinkle resistance, is recorded for each piece of cloth.  Interpret the results below:
+
+The explanatory variables formaldehyde concentration (Conc), catalyst ratio (Ratio), and curing temperature (Temp) have p-values that are less than the significance level of 0.05 therefore statistically significant.
+
+The explanatory variable curing time (Time) has p-value that is greater than the significance level of 0.05 therefore not statistically significant.
+
+The model is significant and explains 68.9% of the variability.
+
+The p-value of the F-Test is <0.0001 which is less than 0.05.  The model is significant.  The coefficient of determination (Adjusted R-Square) is 0.689, thus this regression model explains 68.9% of the total variation from the original data.  The remaining variation is due to other factors that were not included in the model.
+
+I recomend that the research chemist rerun the model without the Time explanatory variable.
+
+B.	Which variable selection methods are most likely computationally intensive – they will longer to run than the other methods due to the amount of computation required or the amount of memory required?  Explain.
+
+The best subset method can be computationally intensive when the number of predictor variables exceed 30.
+
+- Forward selection
+
+The simplest selection method. The forward elimination method starts with no variables in the model. In this approach, variables are added to the model one at a time. At each step, each variable that is not already in the model is tested for inclusion in the model. The most significant of these variables is added to the model. The process stops when resulting model is not significant.
+
+Drawback: each addition of a new variable to the model may cause one or more of the already included variables to become not significant.
+
+- Backward elimination
+
+The backward elimination method starts with all the variables in the model. This approach the least significant variable is removed if it is not significant at a chosen critical level. This continues until all remaining variables are statistically significant.
+
+- Stepwise selection
+
+The stepwise selection method allows to in either drop or add variables at the various steps. If there is a variable in the model that is no longer significant, then the least significant variale is removed from the model. The procedure stops when no further variables can be added or removed.
+
+- Best subsets
+
+The best subset method is best for data sets where the number of predictors is not too large (<= 30)  If the number of predictors is more than 30 the best subsets method may encounter combinatorial explosion. This is a fundamental problem in computing. Combinatorial explosion is the problem that the number of combinations that has to be examined grows exponentially.  The system can become slow to the point that not even the fastest computers can compute in a reasonable amount of time.

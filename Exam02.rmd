@@ -1,0 +1,1180 @@
+---
+title: "Final Test"
+author: "Marjorie Blanco"
+date: "March 11, 2018"
+output:
+  html_document:
+    number_sections: yes
+    toc: yes
+    toc_float: yes
+  word_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, error = FALSE)
+library(readr)
+library(Matrix)
+library(arules)
+library(arulesSequences)
+library(ggplot2)
+library(class)
+library(mlbench)
+library(caret)
+library(rdist)
+```
+
+# Problem 1: Model comparison
+Using your own data develop four classification models (different kinds) and compare them.
+
+A.	Make sure your data set is balanced – you will want to do that yourself.
+
+I choose the analysis of Diabetes in the Pima Indian tribe.  The original dataset contains 768 observation and 9 varibles.
+
+The variables are:
+
+- pregnant: Number of times pregnant
+- glucose: Plasma glucose concentration (glucose tolerance test)
+- pressure: Diastolic blood pressure (mm Hg)
+- triceps: Triceps skin fold thickness (mm)
+- insulin: 2-Hour serum insulin (mu U/ml)
+- mass: Body mass index (weight in kg/(height in m)\^2)
+- pedigree: Diabetes pedigree function
+- age: Age (years)
+- diabetes: Class variable (test for diabetes: pos or neg)
+
+https://www.youtube.com/watch?v=pN4HqWRybwk
+
+The dataset was not balanced originally. 
+
+B.	Use a training set and a test set.
+
+For this analysis, the data set will be split 80% training and 20% test.
+
+C.	Use two different sizes of the data set. 
+
+For this analysis, the first and second  analysis will be performed with 500 and 100 records respectively.   
+
+D.	Which model would you use and why?
+
+I will use a series of classification models.
+
+Make sure you provide all the information and results. 
+
+```{r}
+data(PimaIndiansDiabetes)
+dataset <- PimaIndiansDiabetes
+table(dataset$diabetes)
+
+undersample_ds <- function(x, classCol, nsamples_class){
+  for (i in 1:length(unique(x[, classCol]))){
+    class.i <- unique(x[, classCol])[i]
+    if((sum(x[, classCol] == class.i) - nsamples_class) != 0){
+      x <- x[-sample(which(x[, classCol] == class.i), 
+                     sum(x[, classCol] == class.i) - nsamples_class), ]
+      }
+  }
+  return(x)
+}
+
+dataset <- undersample_ds(dataset, "diabetes", 250)
+table(dataset$diabetes)
+
+trainIndex <- createDataPartition(dataset$diabetes, p = .8, 
+                                  list = FALSE, 
+                                  times = 1)
+train <- dataset[ trainIndex,]
+test <- dataset[-trainIndex,]
+
+
+control <- trainControl(method="repeatedcv", number=10, repeats=3)
+seed <- 7
+metric <- "Accuracy"
+
+# Linear Discriminant Analysis
+set.seed(seed)
+fit.lda <- train(diabetes~., data=train, method="lda", metric=metric, preProc=c("center", "scale"), trControl=control)
+
+cl1 <- predict(fit.lda, newdata = test[,1:8], type="raw")
+cl2 <- predict(fit.lda, newdata = test[,1:8], type="prob")
+cm1 <- caret::confusionMatrix(xtabs(~cl1 + test$diabetes))
+cm1
+
+# Logistic Regression
+set.seed(seed)
+fit.glm <- train(diabetes~., data=train, method="glm", metric=metric, trControl=control)
+
+cl1 <- predict(fit.glm, newdata = test[,1:8], type="raw")
+cl2 <- predict(fit.glm, newdata = test[,1:8], type="prob")
+cm2 <- caret::confusionMatrix(xtabs(~cl1 + test$diabetes))
+cm2
+
+# GLMNET
+set.seed(seed)
+fit.glmnet <- train(diabetes~., data=train, method="glmnet", metric=metric, preProc=c("center", "scale"), trControl=control)
+
+cl1 <- predict(fit.glmnet, newdata = test[,1:8], type="raw")
+cl2 <- predict(fit.glmnet, newdata = test[,1:8], type="prob")
+cm3 <- caret::confusionMatrix(xtabs(~cl1 + test$diabetes))
+cm3
+
+# SVM Radial
+set.seed(seed)
+fit.svmRadial <- train(diabetes~., data=train, method="svmRadial", metric=metric, preProc=c("center", "scale"), trControl=control, fit=FALSE)
+
+cl1 <- predict(fit.svmRadial, newdata = test[,1:8], type="raw")
+cm4 <- caret::confusionMatrix(xtabs(~cl1 + test$diabetes))
+cm4
+
+# kNN
+set.seed(seed)
+fit.knn <- train(diabetes~., data=train, method="knn", metric=metric, preProc=c("center", "scale"), trControl=control)
+
+cl1 <- predict(fit.knn, newdata = test[,1:8], type="raw")
+cl2 <- predict(fit.knn, newdata = test[,1:8], type="prob")
+cm5 <- caret::confusionMatrix(xtabs(~cl1 + test$diabetes))
+cm5
+
+# Naive Bayes
+set.seed(seed)
+fit.nb <- train(diabetes~., data=train, method="nb", metric=metric, trControl=control)
+
+cl1 <- predict(fit.nb, newdata = test[,1:8], type="raw")
+cl2 <- predict(fit.nb, newdata = test[,1:8], type="prob")
+cm6 <- caret::confusionMatrix(xtabs(~cl1 + test$diabetes))
+cm6
+
+# CART
+set.seed(seed)
+fit.cart <- train(diabetes~., data=train, method="rpart", metric=metric, trControl=control)
+
+cl1 <- predict(fit.cart, newdata = test[,1:8], type="raw")
+cl2 <- predict(fit.cart, newdata = test[,1:8], type="prob")
+cm7 <- caret::confusionMatrix(xtabs(~cl1 + test$diabetes))
+cm7
+
+# C5.0
+set.seed(seed)
+fit.c50 <- train(diabetes~., data=train, method="C5.0", metric=metric, trControl=control)
+
+cl1 <- predict(fit.c50, newdata = test[,1:8], type="raw")
+cl2 <- predict(fit.c50, newdata = test[,1:8], type="prob")
+cm8 <- caret::confusionMatrix(xtabs(~cl1 + test$diabetes))
+cm8
+
+# Bagged CART
+set.seed(seed)
+fit.treebag <- train(diabetes~., data=train, method="treebag", metric=metric, trControl=control)
+
+cl1 <- predict(fit.treebag, newdata = test[,1:8], type="raw")
+cl2 <- predict(fit.treebag, newdata = test[,1:8], type="prob")
+cm9 <- caret::confusionMatrix(xtabs(~cl1 + test$diabetes))
+cm9 
+
+# Random Forest
+set.seed(seed)
+fit.rf <- train(diabetes~., data=train, method="rf", metric=metric, trControl=control)
+
+cl1 <- predict(fit.rf, newdata = test[,1:8], type="raw")
+cl2 <- predict(fit.rf, newdata = test[,1:8], type="prob")
+cm10 <- caret::confusionMatrix(xtabs(~cl1 + test$diabetes))
+cm10
+
+# Stochastic Gradient Boosting (Generalized Boosted Modeling)
+set.seed(seed)
+fit.gbm <- train(diabetes~., data=train, method="gbm", metric=metric, trControl=control, verbose=FALSE)
+
+cl1 <- predict(fit.gbm, newdata = test[,1:8], type="raw")
+cl2 <- predict(fit.gbm, newdata = test[,1:8], type="prob")
+cm11 <- caret::confusionMatrix(xtabs(~cl1 + test$diabetes))
+cm11
+```
+
+| Model | Accuracy |
+|---|---|
+| LDA | `r cm1$overall[1]` |
+| GLM | `r cm2$overall[1]` |
+| GLMNET | `r cm3$overall[1]` |
+| SVM | `r cm4$overall[1]` |
+| KNN | `r cm5$overall[1]` |
+| Naive Bayes | `r cm6$overall[1]` |
+| CART | `r cm7$overall[1]` |
+| C5.0 | `r cm8$overall[1]` |
+| Bagged CART | `r cm9$overall[1]` |
+| Random Forest | `r cm10$overall[1]` |
+| Stochastic Gradient Boosting | `r cm11$overall[1]` |
+
+The C5.0 decission tree had the best accuracy.
+
+```{r}
+dataset <- undersample_ds(dataset, "diabetes", 100)
+table(dataset$diabetes)
+
+trainIndex <- createDataPartition(dataset$diabetes, p = .8, 
+                                  list = FALSE, 
+                                  times = 1)
+train<- dataset[ trainIndex,]
+test<- dataset[-trainIndex,]
+
+
+control <- trainControl(method="repeatedcv", number=10, repeats=3)
+seed <- 7
+metric <- "Accuracy"
+
+# Linear Discriminant Analysis
+set.seed(seed)
+fit.lda <- train(diabetes~., data=train, method="lda", metric=metric, preProc=c("center", "scale"), trControl=control)
+
+cl1 <- predict(fit.lda, newdata = test[,1:8], type="raw")
+cl2 <- predict(fit.lda, newdata = test[,1:8], type="prob")
+cm1 <- caret::confusionMatrix(xtabs(~cl1 + test$diabetes))
+cm1
+
+# Logistic Regression
+set.seed(seed)
+fit.glm <- train(diabetes~., data=train, method="glm", metric=metric, trControl=control)
+
+cl1 <- predict(fit.glm, newdata = test[,1:8], type="raw")
+cl2 <- predict(fit.glm, newdata = test[,1:8], type="prob")
+cm2 <- caret::confusionMatrix(xtabs(~cl1 + test$diabetes))
+cm2
+
+# GLMNET
+set.seed(seed)
+fit.glmnet <- train(diabetes~., data=train, method="glmnet", metric=metric, preProc=c("center", "scale"), trControl=control)
+
+cl1 <- predict(fit.glmnet, newdata = test[,1:8], type="raw")
+cl2 <- predict(fit.glmnet, newdata = test[,1:8], type="prob")
+cm3 <- caret::confusionMatrix(xtabs(~cl1 + test$diabetes))
+cm3
+
+# SVM Radial
+set.seed(seed)
+fit.svmRadial <- train(diabetes~., data=train, method="svmRadial", metric=metric, preProc=c("center", "scale"), trControl=control, fit=FALSE)
+
+cl1 <- predict(fit.svmRadial, newdata = test[,1:8], type="raw")
+cm4 <- caret::confusionMatrix(xtabs(~cl1 + test$diabetes))
+cm4
+
+# kNN
+set.seed(seed)
+fit.knn <- train(diabetes~., data=train, method="knn", metric=metric, preProc=c("center", "scale"), trControl=control)
+
+cl1 <- predict(fit.knn, newdata = test[,1:8], type="raw")
+cl2 <- predict(fit.knn, newdata = test[,1:8], type="prob")
+cm5 <- caret::confusionMatrix(xtabs(~cl1 + test$diabetes))
+cm5
+
+# Naive Bayes
+set.seed(seed)
+fit.nb <- train(diabetes~., data=train, method="nb", metric=metric, trControl=control)
+
+cl1 <- predict(fit.nb, newdata = test[,1:8], type="raw")
+cl2 <- predict(fit.nb, newdata = test[,1:8], type="prob")
+cm6 <- caret::confusionMatrix(xtabs(~cl1 + test$diabetes))
+cm6
+
+# CART
+set.seed(seed)
+fit.cart <- train(diabetes~., data=train, method="rpart", metric=metric, trControl=control)
+
+cl1 <- predict(fit.cart, newdata = test[,1:8], type="raw")
+cl2 <- predict(fit.cart, newdata = test[,1:8], type="prob")
+cm7 <- caret::confusionMatrix(xtabs(~cl1 + test$diabetes))
+cm7
+
+# C5.0
+set.seed(seed)
+fit.c50 <- train(diabetes~., data=train, method="C5.0", metric=metric, trControl=control)
+
+cl1 <- predict(fit.c50, newdata = test[,1:8], type="raw")
+cl2 <- predict(fit.c50, newdata = test[,1:8], type="prob")
+cm8 <- caret::confusionMatrix(xtabs(~cl1 + test$diabetes))
+cm8
+
+# Bagged CART
+set.seed(seed)
+fit.treebag <- train(diabetes~., data=train, method="treebag", metric=metric, trControl=control)
+
+cl1 <- predict(fit.treebag, newdata = test[,1:8], type="raw")
+cl2 <- predict(fit.treebag, newdata = test[,1:8], type="prob")
+cm9 <- caret::confusionMatrix(xtabs(~cl1 + test$diabetes))
+cm9 
+
+# Random Forest
+set.seed(seed)
+fit.rf <- train(diabetes~., data=train, method="rf", metric=metric, trControl=control)
+
+cl1 <- predict(fit.rf, newdata = test[,1:8], type="raw")
+cl2 <- predict(fit.rf, newdata = test[,1:8], type="prob")
+cm10 <- caret::confusionMatrix(xtabs(~cl1 + test$diabetes))
+cm10
+
+# Stochastic Gradient Boosting (Generalized Boosted Modeling)
+set.seed(seed)
+fit.gbm <- train(diabetes~., data=train, method="gbm", metric=metric, trControl=control, verbose=FALSE)
+
+cl1 <- predict(fit.gbm, newdata = test[,1:8], type="raw")
+cl2 <- predict(fit.gbm, newdata = test[,1:8], type="prob")
+cm11 <- caret::confusionMatrix(xtabs(~cl1 + test$diabetes))
+cm11
+```
+
+| Model | Accuracy |
+|---|---|
+| LDA | `r cm1$overall[1]` |
+| GLM | `r cm2$overall[1]` |
+| GLMNET | `r cm3$overall[1]` |
+| SVM | `r cm4$overall[1]` |
+| KNN | `r cm5$overall[1]` |
+| Naive Bayes | `r cm6$overall[1]` |
+| CART | `r cm7$overall[1]` |
+| C5.0 | `r cm8$overall[1]` |
+| Bagged CART | `r cm9$overall[1]` |
+| Random Forest | `r cm10$overall[1]` |
+| Stochastic Gradient Boosting | `r cm11$overall[1]` |
+
+The C5.0 decission tree had the best accuracy.
+
+# Problem 2:	Exploring.   
+
+Schools in Portland Public School District are affected by churn.  In this case, churn is defined as  students switching schools midyear.  There are reasons why this occurs.  Investigate this issue.  Here are links:
+http://www.oregonlive.com/education/index.ssf/2018/03/portlands_housing_crisis_is_an.html
+https://projects.oregonlive.com/eviction/map/
+
+A.	Describe how you would go about developing a churn prediction model and discuss how you would derive input variables.    
+
+- Gender - student's gender (Nominal: Male or Female)
+
+- Age - student's age
+
+- ESL - (Nominal: Yes, No)
+
+- Nationality - student's nationality (Nominal)
+
+- Race - student's race (Nominal)
+
+- Educational Level - educational level student belongs (Nominal: Elementary, MiddleSchool, HighSchool)
+
+- Grade Level - grade student belongs (Nominal: 00, 01, 02, 03, 04, 05, 06, 07, 08, 09, 10, 11, 12)
+
+- Parent responsible for student (Nominal: Mother, Father, Both, Other)
+
+- Guardian Answering Survey - guardian answered the surveys which are provided from school or not (Nominal: Yes, No)
+
+- Guardian School Satisfaction - the degree of guardian satisfaction from school (Nominal: Yes, No)
+
+- Student Absence Days - the number of absence days for each student (Nominal: above-7, under-7)
+
+- Free/Reduced Lunch : (Nominal: Yes, No)
+
+- Churn - (Nominal: Yes, No)
+
+B.	Provide a preliminary model (conceptual) in the form Churn_Value = M(x1, x2, … Xn)
+Where M is a model.  Here you want to suggest the variables for the model. 
+
+The model I selected for this problem is logit.
+
+Churn = glm(Gender, Age, ESL, Nationality, Race, Education Level, Grade Level,Survey, School Satisfaction, Absence Days, Free/Reduced Lunch)
+
+# Problem 3: Association rules
+
+Describe an application of association rules method.  Do not base your discussion on purchases such as  grocery store transactions.   You want to apply it in another area – marketing, healthcare, finance, law enforcement, fraud, etc.
+
+
+Often medical researchers explore medical dataset to discover insight using association rules method in medical data.  An example medical data set will include the profiles of patients of a hospital being treated for heart disease. Each record corresponds to information for one patient. The profile contains personal information such as age, race, smoker/nonsmoker.
+Measurements such as weight, heart rate, blood pressure. A list of pre-existence or existence of certain diseases, diagnosis. 
+
+# Problem 4:	Exploration
+
+A.	Provide an example of using a data mining method we did not cover in class (based on the ones in the syllabus).
+
+One of the data mining method not covered in class is sequential patterns. Sequential patterns analysis is a technique that seeks to discover or identify similar patterns, regular events or trends in transaction data over a business period.
+
+
+B.	What data did you use?
+
+I used both the Zaki and Adult data set to explore sequential pattern data mining method.
+
+```{r}
+zaki <- read_csv("https://github.com/cran/arulesSequences/blob/master/inst/misc/zaki.txt")
+
+df <- read_baskets(con = system.file("misc", "zaki.txt", package = "arulesSequences"), info = c("sequenceID","eventID","SIZE"))
+as(df, "data.frame")
+s1 <- cspade(df, parameter = list(support = 0.4), control = list(verbose = TRUE))
+summary(s1)
+
+
+data("Adult")
+rules <- apriori(Adult, parameter = list(supp = 0.5, conf = 0.9, target = "rules"))
+summary(rules) 
+
+inspect(head(rules, by = "lift"))
+```
+
+C.	Why that method?
+
+
+Retailer must deal with variation of products and user buying behaviors. Shelf is one of the most important resources in retail environment. Retailers can increase their profit but, also decrease cost by proper management of shelf space allocation and products display. This method can be used by management to increase profit and decrease cost.
+
+George, A.; Binu, D. (2013). "An Approach to Products Placement in Supermarkets Using PrefixSpan Algorithm". Journal of King Saud University-Computer and Information Sciences.
+
+https://www.sciencedirect.com/science/article/pii/S1319157812000353?via%3Dihub
+
+
+# Problem 5: Understanding measures
+
+```{r}
+df <- data.frame(c(37,19), c(43,131), row.names = c("One","Zero"))
+colnames(df) <- c("One","zero")
+df
+
+accuracy <- function(df) {
+  # Accuracy: (tp+tn)/(tp+tn+fp+fn)
+  (df[1,1]+df[2,2])/sum(df[,1:2])
+}
+
+precision <- function(df) {
+  # Precision: tp/(tp+fp)
+  df[1,1]/sum(df[1,1:2])
+}
+
+recall <- function(df) {
+  # Recall: tp/(tp + fn)
+  df[1,1]/sum(df[1:2,1])
+}
+
+f_score <- function(precision, recall){
+  # F-Score: 2 * precision * recall /(precision + recall):
+  2 * precision * recall /(precision + recall)
+}
+
+
+df1 <- data.frame(c(485,515), c(9,991), row.names = c("PREDICTED.E","PREDICTED.A"))
+colnames(df1) <- c("TRUE.E","TRUE.A")
+df1
+```
+
+Accuracy: How often is the classifier correct? (TP+TN)/total
+
+(485+991)/(485+991+515+9)
+
+Precision: When it predicts E, how often is it correct?  TP/predicted E
+
+485/(485+9)
+
+True Positive Rate (Recall): When it's actually E, how often does it predict E? TP/actual E 
+
+485 / (485+515)
+
+|Accuracy (% correct) | Precision | Recall | F-Score |
+|---|---|---|---|
+|`r accuracy(df1)` | `r precision(df1) ` | `r recall(df1)` | `r f_score( precision(df1), recall(df1))` |
+
+```{r}
+df2 <- data.frame(c(493,507), c(1017,98983), row.names = c("PREDICTED.E","PREDICTED.A"))
+colnames(df2) <- c("TRUE.E","TRUE.A")
+df2
+```
+
+Accuracy: How often is the classifier correct? (TP+TN)/total
+
+(493+98983)/(493+507+1017+98983)
+
+Precision: When it predicts E, how often is it correct?  TP/predicted E
+
+493/(493+1017)
+
+True Positive Rate (Recall): When it's actually E, how often does it predict E? TP/actual E 
+
+493 / (493+507)
+
+|Accuracy (% correct) | Precision | Recall | F-Score |
+|---|---|---|---|
+|`r accuracy(df2)` | `r precision(df2)` | `r recall(df2)` | `r f_score( precision(df2), recall(df2))` |
+
+
+The F1 score is the average of the precision and recall. An F1 score reaches its best value at 1 (perfect precision and recall) and worst at 0.
+
+|Measure | Model 1 | Model 2 | Note |
+|---|---|---|---|
+| Accuracy | `r accuracy(df1)` | `r accuracy(df2)` | Model 2 has the highest accuracy |
+| Precision | `r precision(df1)` | `r precision(df2)` | Model 1 has the highest precission |
+| Recall | `r recall(df1)` | `r recall(df2)` | Model 2 has the highest recall but not by much |
+| F-Score | `r f_score( precision(df1), recall(df1))` | `r f_score( precision(df2), recall(df2))` | Model 1 has the best F-Score.  Model 1 is the best in my opinion.|
+
+# Problem 6:	Logistic regression
+
+An experiment is done to test the effect of a toxic substance on insects. The data is from the textbook, Applied Linear Statistical Models by Kutner, Nachtsheim, Neter, & Li.
+
+At each of six dose levels, 250 insects are exposed to the substance and the number of insects that die is counted.  Below is the data:
+
+```{r}
+toxicity <- read_csv("toxicity.csv")
+
+## Observed probabilities
+
+toxicity$observed <- toxicity$Deaths/toxicity$SampSize
+
+model <- glm(observed~Dose, data=toxicity, family=binomial("logit"))
+summary(model)
+
+
+anova(model, test="Chisq")
+
+```
+
+## Interpret the output. 
+The odds ratio for Dose is `r round(exp(.6740),4)`. The interpretation of the odds ratio is that for every increase of 1 unit in dose, the estimated odds of death is multiplied by `r round(exp(.6740),4)`.
+
+## Estimated probabilities
+
+```{r}
+
+toxicity$predicted <- 1 / (1 + exp(2.644 - (0.674 * toxicity$Dose )))
+fitted.results <- predict(model,newdata=toxicity,type='response')
+fitted.results <- ifelse(fitted.results > 0.5,1,0)
+toxicity$actuals <- ifelse(toxicity$observed > 0.5,1,0)
+
+
+misClasificError <- mean(fitted.results != toxicity$actuals)
+print(paste('Misclasification error = ',misClasificError))
+print(paste('Accuracy = ',1-misClasificError))
+```
+
+
+At Dose = 1, the estimated odds of death is `r round(toxicity[1,"predicted"]/(1 − toxicity[1,"predicted"]),4)`.
+
+At Dose = 2, the estimated odds of death is `r round(toxicity[2,"predicted"]/(1 − toxicity[2,"predicted"]),4)`.
+
+At Dose = 3, the estimated odds of death is `r round(toxicity[3,"predicted"]/(1 − toxicity[3,"predicted"]),4)`.
+
+At Dose = 4, the estimated odds of death is `r round(toxicity[4,"predicted"]/(1 − toxicity[4,"predicted"]),4)`.
+
+At Dose = 5, the estimated odds of death is `r round(toxicity[5,"predicted"]/(1 − toxicity[5,"predicted"]),4)`.
+
+At Dose = 6, the estimated odds of death is `r round(toxicity[6,"predicted"]/(1 − toxicity[6,"predicted"]),4)`.
+
+
+# Problem 7:	Neural network
+A.	Conduct  8 experiments using any data set and any neural network implementation (does not have to be R ).  
+You will vary the learning rate (2 different ones)  as well as the number of hidden layers (2 different ones) as well nodes per layers (2 different ones).   Compare the results.  Discuss the outcomes.
+
+
+Tuning parameters:
+
+- size (#Hidden Units)
+
+- decay (Weight Decay)
+
+dataset <- PimaIndiansDiabetes
+
+
+### Split data set
+
+```{r}
+normalize <- function(x) {
+    return ((x - min(x)) / (max(x) - min(x)))
+}
+
+trainIndex <- createDataPartition(PimaIndiansDiabetes$diabetes,
+                                  p = .7, 
+                                  list = FALSE, 
+                                  times = 1)
+train <- PimaIndiansDiabetes[ trainIndex,]
+test  <- PimaIndiansDiabetes[-trainIndex,]
+
+#train <- data_temp
+train_diabetes.x <- train[, -ncol(train)]
+train_diabetes.y <- train[, c("diabetes")]
+
+test_diabetes.x <- test[, -ncol(test)]
+test_diabetes.y <- test[, c("diabetes")]
+```
+
+### Model 1-1 (caret)
+
+```{r}
+set.seed(1)
+diabetes.m1 <- caret::train(train_diabetes.x, train_diabetes.y,
+                          method = "nnet",
+                          tuneGrid = expand.grid(
+                            .size = c(5),
+                            .decay = 0.15),
+                          trControl = trainControl(method = "cv",
+                                                   number = 10,
+                                                   verboseIter = FALSE),
+                          MaxNWts = 10000,
+                          maxit = 100,
+                          preProc = c("center", "scale"))
+
+train_diabetes.yhat1 <- predict(diabetes.m1)
+
+caret::confusionMatrix(xtabs(~train_diabetes.yhat1 + train_diabetes.y))
+caret::confusionMatrix(xtabs(~train_diabetes.yhat1 + train_diabetes.y), mode = "prec_recall")
+
+
+test_diabetes.yhat1 <- predict(diabetes.m1, newdata = test_diabetes.x)
+caret::confusionMatrix(xtabs(~test_diabetes.yhat1 + test_diabetes.y))
+caret::confusionMatrix(xtabs(~test_diabetes.yhat1 + test_diabetes.y), mode = "prec_recall")
+```
+
+### Model 1-2 (caret)
+
+```{r}
+set.seed(1)
+diabetes.m1 <- caret::train(train_diabetes.x, train_diabetes.y,
+                          method = "nnet",
+                          tuneGrid = expand.grid(
+                            .size = c(5),
+                            .decay = 0.1),
+                          trControl = trainControl(method = "cv",
+                                                   number = 10,
+                                                   verboseIter = FALSE),
+                          MaxNWts = 10000,
+                          maxit = 100,
+                          preProc = c("center", "scale"))
+
+train_diabetes.yhat1 <- predict(diabetes.m1)
+
+caret::confusionMatrix(xtabs(~train_diabetes.yhat1 + train_diabetes.y))
+caret::confusionMatrix(xtabs(~train_diabetes.yhat1 + train_diabetes.y), mode = "prec_recall")
+
+
+test_diabetes.yhat1 <- predict(diabetes.m1, newdata = test_diabetes.x)
+caret::confusionMatrix(xtabs(~test_diabetes.yhat1 + test_diabetes.y))
+caret::confusionMatrix(xtabs(~test_diabetes.yhat1 + test_diabetes.y), mode = "prec_recall")
+```
+
+### Model 1-3 (caret)
+
+```{r}
+set.seed(1)
+diabetes.m1 <- caret::train(train_diabetes.x, train_diabetes.y,
+                          method = "nnet",
+                          tuneGrid = expand.grid(
+                            .size = c(5),
+                            .decay = 0.05),
+                          trControl = trainControl(method = "cv",
+                                                   number = 10,
+                                                   verboseIter = FALSE),
+                          MaxNWts = 10000,
+                          maxit = 100,
+                          preProc = c("center", "scale"))
+
+train_diabetes.yhat1 <- predict(diabetes.m1)
+
+caret::confusionMatrix(xtabs(~train_diabetes.yhat1 + train_diabetes.y))
+caret::confusionMatrix(xtabs(~train_diabetes.yhat1 + train_diabetes.y), mode = "prec_recall")
+
+
+test_diabetes.yhat1 <- predict(diabetes.m1, newdata = test_diabetes.x)
+caret::confusionMatrix(xtabs(~test_diabetes.yhat1 + test_diabetes.y))
+caret::confusionMatrix(xtabs(~test_diabetes.yhat1 + test_diabetes.y), mode = "prec_recall")
+```
+
+### Model 2-1 (caret)
+
+```{r}
+set.seed(1)
+diabetes.m2 <- caret::train(train_diabetes.x, train_diabetes.y,
+                          method = "nnet",
+                          tuneGrid = expand.grid(
+                            .size = c(10),
+                            .decay = 0.15),
+                          trControl = trainControl(method = "cv",
+                                                   number = 10,
+                                                   verboseIter = FALSE),
+                          MaxNWts = 50000,
+                          maxit = 100,
+                          preProc = c("center", "scale"))
+
+train_diabetes.yhat1 <- predict(diabetes.m2)
+caret::confusionMatrix(xtabs(~train_diabetes.yhat1 + train_diabetes.y))
+caret::confusionMatrix(xtabs(~train_diabetes.yhat1 + train_diabetes.y), mode = "prec_recall")
+
+
+test_diabetes.yhat1 <- predict(diabetes.m2, newdata = test_diabetes.x)
+caret::confusionMatrix(xtabs(~test_diabetes.yhat1 + test_diabetes.y))
+caret::confusionMatrix(xtabs(~test_diabetes.yhat1 + test_diabetes.y), mode = "prec_recall")
+```
+
+### Model 2-2 (caret)
+
+```{r}
+set.seed(1)
+diabetes.m2 <- caret::train(train_diabetes.x, train_diabetes.y,
+                          method = "nnet",
+                          tuneGrid = expand.grid(
+                            .size = c(10),
+                            .decay = 0.1),
+                          trControl = trainControl(method = "cv",
+                                                   number = 10,
+                                                   verboseIter = FALSE),
+                          MaxNWts = 50000,
+                          maxit = 100,
+                          preProc = c("center", "scale"))
+
+train_diabetes.yhat1 <- predict(diabetes.m2)
+caret::confusionMatrix(xtabs(~train_diabetes.yhat1 + train_diabetes.y))
+caret::confusionMatrix(xtabs(~train_diabetes.yhat1 + train_diabetes.y), mode = "prec_recall")
+
+
+test_diabetes.yhat1 <- predict(diabetes.m2, newdata = test_diabetes.x)
+caret::confusionMatrix(xtabs(~test_diabetes.yhat1 + test_diabetes.y))
+caret::confusionMatrix(xtabs(~test_diabetes.yhat1 + test_diabetes.y), mode = "prec_recall")
+```
+
+### Model 2-3 (caret)
+
+```{r}
+set.seed(1)
+diabetes.m2 <- caret::train(train_diabetes.x, train_diabetes.y,
+                          method = "nnet",
+                          tuneGrid = expand.grid(
+                            .size = c(10),
+                            .decay = 0.05),
+                          trControl = trainControl(method = "cv",
+                                                   number = 10,
+                                                   verboseIter = FALSE),
+                          MaxNWts = 50000,
+                          maxit = 100,
+                          preProc = c("center", "scale"))
+
+train_diabetes.yhat1 <- predict(diabetes.m2)
+caret::confusionMatrix(xtabs(~train_diabetes.yhat1 + train_diabetes.y))
+caret::confusionMatrix(xtabs(~train_diabetes.yhat1 + train_diabetes.y), mode = "prec_recall")
+
+
+test_diabetes.yhat1 <- predict(diabetes.m2, newdata = test_diabetes.x)
+caret::confusionMatrix(xtabs(~test_diabetes.yhat1 + test_diabetes.y))
+caret::confusionMatrix(xtabs(~test_diabetes.yhat1 + test_diabetes.y), mode = "prec_recall")
+```
+
+### Model 3-1 (caret)
+
+```{r}
+set.seed(1)
+diabetes.m3 <- caret::train(train_diabetes.x, train_diabetes.y,
+                          method = "nnet",
+                          tuneGrid = expand.grid(
+                            .size = c(40),
+                            .decay = 0.15),
+                          trControl = trainControl(method = "cv",
+                                                   number = 10,
+                                                   verboseIter = FALSE),
+                          MaxNWts = 50000,
+                          maxit = 100,
+                          preProc = c("center", "scale"))
+
+train_diabetes.yhat1 <- predict(diabetes.m3)
+caret::confusionMatrix(xtabs(~train_diabetes.yhat1 + train_diabetes.y))
+caret::confusionMatrix(xtabs(~train_diabetes.yhat1 + train_diabetes.y), mode = "prec_recall")
+
+
+test_diabetes.yhat1 <- predict(diabetes.m3, newdata = test_diabetes.x)
+caret::confusionMatrix(xtabs(~test_diabetes.yhat1 + test_diabetes.y))
+caret::confusionMatrix(xtabs(~test_diabetes.yhat1 + test_diabetes.y), mode = "prec_recall")
+```
+
+### Model 3-2 (caret)
+
+```{r}
+set.seed(1)
+diabetes.m3 <- caret::train(train_diabetes.x, train_diabetes.y,
+                          method = "nnet",
+                          tuneGrid = expand.grid(
+                            .size = c(40),
+                            .decay = 0.1),
+                          trControl = trainControl(method = "cv",
+                                                   number = 10,
+                                                   verboseIter = FALSE),
+                          MaxNWts = 50000,
+                          maxit = 100,
+                          preProc = c("center", "scale"))
+
+train_diabetes.yhat1 <- predict(diabetes.m3)
+caret::confusionMatrix(xtabs(~train_diabetes.yhat1 + train_diabetes.y))
+caret::confusionMatrix(xtabs(~train_diabetes.yhat1 + train_diabetes.y), mode = "prec_recall")
+
+
+test_diabetes.yhat1 <- predict(diabetes.m3, newdata = test_diabetes.x)
+caret::confusionMatrix(xtabs(~test_diabetes.yhat1 + test_diabetes.y))
+caret::confusionMatrix(xtabs(~test_diabetes.yhat1 + test_diabetes.y), mode = "prec_recall")
+```
+
+### Model 3-3 (caret)
+
+```{r}
+set.seed(1)
+diabetes.m3 <- caret::train(train_diabetes.x, train_diabetes.y,
+                          method = "nnet",
+                          tuneGrid = expand.grid(
+                            .size = c(40),
+                            .decay = 0.05),
+                          trControl = trainControl(method = "cv",
+                                                   number = 10,
+                                                   verboseIter = FALSE),
+                          MaxNWts = 50000,
+                          maxit = 100,
+                          preProc = c("center", "scale"))
+
+train_diabetes.yhat1 <- predict(diabetes.m3)
+caret::confusionMatrix(xtabs(~train_diabetes.yhat1 + train_diabetes.y))
+caret::confusionMatrix(xtabs(~train_diabetes.yhat1 + train_diabetes.y), mode = "prec_recall")
+
+
+test_diabetes.yhat1 <- predict(diabetes.m3, newdata = test_diabetes.x)
+caret::confusionMatrix(xtabs(~test_diabetes.yhat1 + test_diabetes.y))
+caret::confusionMatrix(xtabs(~test_diabetes.yhat1 + test_diabetes.y), mode = "prec_recall")
+```
+
+Model 1-1 has the best accuracy.  As noted, when the size increase the accuracy decrease.  The same applies when the decay decreases so does the accuracy.
+
+|Model | Size| Decay | Accuracy |
+|---|---|---|---|
+| 1-1 | 05 | 0.15 | 0.7913 |
+| 1-2 | 05 | 0.10 | 0.7739 |
+| 1-3 | 05 | 0.05 | 0.7478 | 
+| 2-1 | 10 | 0.15 | 0.7522 |
+| 2-2 | 10 | 0.10 | 0.7696 |
+| 2-3 | 10 | 0.05 | 0.7739 |
+| 3-1 | 40 | 0.15 | 0.7739 |
+| 3-2 | 40 | 0.10 | 0.7478 |
+| 3-3 | 40 | 0.05 | 0.7348 |
+
+
+# Problem 8: Bayes
+
+```{r}
+df <- data.frame(c(50,450,500), c(500,0,0), c(400,0,100), c(0,500,50), row.names = c("Parrot","Dog","Fish") )
+colnames(df) <- c("Swim","Wings","Green", "Dangerous Teeth")
+df
+
+pParrot <- pDog <- pFish <- 500 / 1500
+
+pSwimParrot <- df["Parrot","Swim"]/500
+pWingsParrot <- df["Parrot","Wings"]/500
+pGreenParrot <- df["Parrot","Green"]/500
+pTeethParrot <- df["Parrot","Dangerous Teeth"]/500
+
+
+pSwimDog <- df["Dog","Swim"]/500
+pWingDog <- df["Dog","Wings"]/500
+pGreenDog <- df["Dog","Green"]/500
+pTeethDog <- df["Dog","Dangerous Teeth"]/500
+
+
+pSwimFish <- df["Fish","Swim"]/500
+pWingFish <- df["Fish","Wings"]/500
+pGreenFish <- df["Fish","Green"]/500
+pTeethFish <- df["Fish","Dangerous Teeth"]/500
+```
+
+P(H | E) = P(E | H) * P(H) / P(E)
+
+H = Parrot, E = Swim,Green
+
+P(Parrot | Swim, Green) = P(Swim | Parrot) * P(Green | Parrot) * P(Parrot) / P(Swim, Green)
+
+P(Dog | Swim, Green) = `r (pSwimParrot * pGreenParrot * pParrot)`
+
+
+H = Dog, E = Swim, Green
+
+P(Dog | Swim, Green) = P(Swim | Dog) * P(Green | Dog) * P(Dog) / P(Swim, Green)
+
+P(Dog | Swim, Green) = `r (pSwimDog * pGreenDog * pDog)`
+
+H = Fish, E = Swim, Green
+
+P(Fish | Swim, Green) = P(Swim | Fish) * P(Green | Fish) * P(Fish) / P(Swim, Green)
+
+P(Fish | Swim, Green) = `r (pSwimFish * pGreenFish * pFish)`
+
+The prediction is Fish.
+
+H = Parrot, E = Swim, Green, Teeth
+
+P(Parrot | Swim, Green, Teeth) = P(Swim | Parrot) * P(Green | Parrot) * P(Teeth | Parrot) * P(Parrot) / P(Swim, Green, Teeth)
+
+P(Parrot | Swim, Green, Teeth) = `r (pSwimParrot * pGreenParrot * pTeethParrot * pParrot)`
+
+H = Dog, E = Swim, Green, Teeth
+
+P(Dog | Swim, Green, Teeth) = P(Swim | Dog) * P(Green | Dog) * P(Teeth | Dog) * P(Dog) / P(Swim, Green, Teeth)
+
+P(Dog | Swim, Green, Teeth) = `r (pSwimDog * pGreenDog * pTeethDog * pDog)`
+
+H = Fish, E = Swim, Green, Teeth
+
+P(Fish | Swim, Green, Teeth) = P(Swim | Fish) * P(Green | Fish) * P(Teeth | Fish) * P(Fish) / P(Swim, Green, Teeth)
+
+P(Fish | Swim, Green, Teeth) = `r (pSwimFish * pGreenFish * pTeethFish * pFish)`
+
+The prediction is Fish.
+
+# Problem 9: K-Means
+
+Show each step in how records are added to a cluster.  This will be based on the mean vector.  Remember the mean vector is recalculated each time a new member is added to the cluster.   At the end you will want to make sure that each record is assigned to the closest mean.
+
+```{r}
+df <- read_csv("kmeans.csv")
+df$group <-  0
+df[1, 4] <- 1
+df[4, 4] <- 2
+df$group <- as.factor(df$group)
+
+
+mv1 <- df[1, 2:3]
+mv2 <- df[4, 2:3]
+
+ggplot(data = df , aes(x=A, y=B, label=Subject, color = group)) +
+  geom_point() +
+  geom_text(aes(label=Subject),hjust=0.5, vjust=2)
+``` 
+  
+
+## Step 0
+
+| |	Cluster 1| |	Cluster 2 |
+|---|---|---|---|---|
+|Step |	Subject |	Mean Vector (centroid) |	Subject |	Mean Vector (centroid) |
+| 0 | 1 | (1.0, 1.0) |	4	| (5.0, 7.0) |
+
+## Step 1
+
+```{r}
+dist1 <- dist(rbind(mv1, df[2,2:3]))
+dist2 <- dist(rbind(mv2, df[2,2:3]))
+dist1
+dist2
+
+df[2, 4] <- 1
+
+mv1 <- colMeans(df[1:2,2:3])
+
+ggplot(data = df , aes(x=A, y=B, label=Subject, color = group)) +
+  geom_point() +
+  geom_text(aes(label=Subject),hjust=0.5, vjust=2) +
+  geom_point(aes(x=mv1[1], y=mv1[2]), color="green")
+```
+
+| |	Cluster 1| |	Cluster 2 |
+|---|---|---|---|---|
+|Step |	Subject |	Mean Vector (centroid) |	Subject |	Mean Vector (centroid) |
+| 0 | 1 | (1.0, 1.0) |	4	| (5.0, 7.0) |
+| 1 | 1,2 | (1.25, 1.5) |	4	| (5.0, 7.0) |
+
+## Step 2
+
+```{r}
+dist1 <- dist(rbind(mv1, df[3,2:3]))
+dist2 <- dist(rbind(mv2, df[3,2:3]))
+dist1
+dist2
+
+df[3, 4] <- 1
+
+mv1 <- colMeans(df[1:3,2:3])
+
+ggplot(data = df , aes(x=A, y=B, label=Subject, color = group)) +
+  geom_point() +
+  geom_text(aes(label=Subject),hjust=0.5, vjust=2) +
+  geom_point(aes(x=mv1[1], y=mv1[2]), color="green")
+```
+
+| |	Cluster 1| |	Cluster 2 |
+|---|---|---|---|---|
+|Step |	Subject |	Mean Vector (centroid) |	Subject |	Mean Vector (centroid) |
+| 0 | 1 | (1.0, 1.0) |	4	| (5.0, 7.0) |
+| 1 | 1,2 | (1.25, 1.5) |	4	| (5.0, 7.0) |
+| 2 | 1,2,3 | (1.8, 2.3) |	4	| (5.0, 7.0) |
+
+## Step 3
+
+```{r}
+dist1 <- dist(rbind(mv1, df[5,2:3]))
+dist2 <- dist(rbind(mv2, df[5,2:3]))
+dist1
+dist2
+
+df[5, 4] <- 2
+
+mv2 <- colMeans(df[4:5,2:3])
+
+ggplot(data = df , aes(x=A, y=B, label=Subject, color = group)) +
+  geom_point() +
+  geom_text(aes(label=Subject),hjust=0.5, vjust=2) +
+  geom_point(aes(x=mv1[1], y=mv1[2]), color="green") +
+  geom_point(aes(x=mv2[1], y=mv2[2]), color="blue")
+```
+
+| |	Cluster 1| |	Cluster 2 |
+|---|---|---|---|---|
+|Step |	Subject |	Mean Vector (centroid) |	Subject |	Mean Vector (centroid) |
+| 0 | 1 | (1.0, 1.0) |	4	| (5.0, 7.0) |
+| 1 | 1,2 | (1.25, 1.5) |	4	| (5.0, 7.0) |
+| 2 | 1,2,3 | (1.8, 2.3) |	4	| (5.0, 7.0) |
+| 3 | 1,2,3 | (1.8, 2.3) |	4,5	| (4.25, 6.0) |
+
+## Step 4
+
+```{r}
+dist1 <- dist(rbind(mv1, df[6,2:3]))
+dist2 <- dist(rbind(mv2, df[6,3:3]))
+dist1
+dist2
+
+df[6, 4] <- 2
+
+mv2 <- colMeans(df[4:6,2:3])
+
+ggplot(data = df , aes(x=A, y=B, label=Subject, color = group)) +
+  geom_point() +
+  geom_text(aes(label=Subject),hjust=0.5, vjust=2) +
+  geom_point(aes(x=mv1[1], y=mv1[2]), color="green") +
+  geom_point(aes(x=mv2[1], y=mv2[2]), color="blue")
+```
+
+| |	Cluster 1| |	Cluster 2 |
+|---|---|---|---|---|
+|Step |	Subject |	Mean Vector (centroid) |	Subject |	Mean Vector (centroid) |
+| 0 | 1 | (1.0, 1.0) |	4	| (5.0, 7.0) |
+| 1 | 1,2 | (1.25, 1.5) |	4	| (5.0, 7.0) |
+| 2 | 1,2,3 | (1.8, 2.3) |	4	| (5.0, 7.0) |
+| 3 | 1,2,3 | (1.8, 2.3) |	4,5	| (4.25, 6.0) |
+| 4 | 1,2,3 | (1.8, 2.3) |	4,5,6	| (4.3, 5.6) |
+
+## Step 5
+
+```{r}
+dist1 <- dist(rbind(mv1, df[6,2:3]))
+dist2 <- dist(rbind(mv2, df[6,2:3]))
+dist1
+dist2
+
+df[7, 4] <- 2
+
+mv2 <- colMeans(df[4:7,2:3])
+
+ggplot(data = df , aes(x=A, y=B, label=Subject, color = group)) +
+  geom_point() +
+  geom_text(aes(label=Subject),hjust=0.5, vjust=2) +
+  geom_point(aes(x=mv1[1], y=mv1[2]), color="green") +
+  geom_point(aes(x=mv2[1], y=mv2[2]), color="blue")
+```
+
+| |	Cluster 1| |	Cluster 2 |
+|---|---|---|---|---|
+|Step |	Subject |	Mean Vector (centroid) |	Subject |	Mean Vector (centroid) |
+| 0 | 1 | (1.0, 1.0) |	4	| (5.0, 7.0) |
+| 1 | 1,2 | (1.25, 1.5) |	4	| (5.0, 7.0) |
+| 2 | 1,2,3 | (1.8, 2.3) |	4	| (5.0, 7.0) |
+| 3 | 1,2,3 | (1.8, 2.3) |	4,5	| (4.25, 6.0) |
+| 4 | 1,2,3 | (1.8, 2.3) |	4,5,6	| (4.3, 5.6) |
+| 5 | 1,2,3 | (1.8, 2.3) |	4,5,6,7	| (4.1, 5.4) |
+
+# Problem 10: K-Nearest neighbor
+
+A.	Determine the Churn class for records 11 and 12 - for K = 1, 2, 3.    
+Do this using normalized and unnormalized values.
+
+```{r}
+df <- read_csv("churn_test.csv")
+```
+
+## Unnormalized
+
+### K = 1
+
+```{r}
+train <- data.frame(df[1:10,2:7])
+train$Churn <- as.factor(train$Churn)  
+test <- data.frame(df[11:12,2:6])
+
+trueclass <- train[,6]
+
+knn <- knn(train[,1:5], test, cl=trueclass, k=1, prob = TRUE)
+knn
+
+knn <- knn(train[,1:5], test, cl=trueclass, k=2, prob = TRUE)
+knn
+
+knn <- knn(train[,1:5], test, cl=trueclass, k=3, prob = TRUE)
+knn
+```
+
+Churn class for records 11 is false for K=1,2,3 when data is not normalized.  Record 11 is closest to record 5 (Churn = False).
+
+Churn class for records 12 is false for K=1,2,3 when data is not normalized.  Record 11 is closest to record 8 (Churn = False).
+
+## Normalized
+
+```{r}
+normalize <- function(x) {
+    return ((x - min(x)) / (max(x) - min(x)))
+}
+
+df2 <- data.frame(lapply(df[,2:6], normalize))
+
+
+train <- data.frame(df2[1:10,])
+test <- data.frame(df2[11:12,])
+
+knn <- knn(train[,1:5], test, cl=trueclass, k=1, prob = TRUE)
+knn
+
+knn <- knn(train[,1:5], test, cl=trueclass, k=2, prob = TRUE)
+knn
+
+knn <- knn(train[,1:5], test, cl=trueclass, k=3, prob = TRUE)
+knn
+```
+
+Churn class for records 11 is false for K=1,2,3 when data is normalized.  Record 11 is closest to record 5 (Churn = False).
+
+Churn class for records 12 is false for K=1,2,3 when data is normalized.  Record 12 is closest to record 8 (Churn = False).
+
+B.	Show the actual calculations using record 1 and record 12 to determine the distance.  Use the unnormalized values.
+
+## Unnormalized
+
+```{r}
+x1 <- (df[1,2] - df[12,2])^2
+x2 <- (df[1,3] - df[12,3])^2
+x3 <- (df[1,4] - df[12,4])^2
+x4 <- (df[1,5] - df[12,5])^2
+x5 <- (df[1,6] - df[12,6])^2
+dist <- sqrt(x1+x2+x3+x4+x5)
+dist
+
+rdist(df[c(1,12),2:6],metric = "euclidean")
+
+rdist(df[c(1,12),2:6],metric = "minkowski")
+
+rdist(df[c(1,12),2:6],metric = "manhattan")
+
+rdist(df2[,],metric = "euclidean")
+```
+
+## Normalized
+
+```{r}
+x1 <- (df2[1,1] - df2[12,1])^2
+x2 <- (df2[1,2] - df2[12,2])^2
+x3 <- (df2[1,3] - df2[12,3])^2
+x4 <- (df2[1,4] - df2[12,4])^2
+x5 <- (df2[1,5] - df2[12,5])^2
+dist <- sqrt(x1+x2+x3+x4+x5)
+dist
+
+rdist(df2[c(1,12),],metric = "euclidean")
+
+rdist(df2[c(1,12),],metric = "minkowski")
+
+rdist(df2[c(1,12),],metric = "manhattan")
+
+rdist(df2[,],metric = "euclidean")
+```
+
