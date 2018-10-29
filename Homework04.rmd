@@ -1,0 +1,554 @@
+---
+title: "Homework 4"
+author: "Marjorie Blanco"
+output:
+  html_document:
+    number_sections: yes
+    toc: yes
+    toc_float: yes
+  word_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(neuralnet)
+library(nnet)
+library(caret)
+library(tidyr)
+library(NeuralNetTools)
+library(e1071)
+library(RSNNS)
+library(devtools)
+library(C50)
+library(rpart)
+library(ROCR)
+library(rpart.plot)
+```
+
+```{r, echo=FALSE}
+normalize <- function(x) {
+    return ((x - min(x)) / (max(x) - min(x)))
+}
+decode <- function(data, colname) {
+  colnames(data)[which(names(data) == colname)] <- "key"
+  data$value <- 1
+  spread(data, key, value, fill = 0, sep = colname)
+}
+```
+
+# Chapter 12
+
+## Problem 12
+
+### Read churn data set
+
+```{r}
+data <-read.table("churn.txt", 
+                   header = T, 
+                   sep=',', na.strings=c('','NA'), 
+                   stringsAsFactors = FALSE)
+names(data) <- c("State","Account.Length","Area.Code","Phone","Intl.Plan","VMail.Plan","VMail.Message","Day.Mins" ,"Day.Calls"  ,"Day.Charge","Eve.Mins" ,"Eve.Calls","Eve.Charge","Night.Mins","Night.Calls" ,"Night.Charge","Intl.Mins" ,"Intl.Calls","Intl.Charge","CustServ.Calls" ,"Churn")
+
+data_temp <- data
+```
+
+### Determine which variables are useful for determining churn 
+
+```{r}
+data_temp$Intl.Plan <- data_temp$Intl.Plan == "yes"
+data_temp$VMail.Plan <- data_temp$VMail.Plan == "yes"
+data_temp$Intl.Plan <- data_temp$Intl.Plan * 1
+data_temp$VMail.Plan <- data_temp$VMail.Plan * 1
+
+churn.yes <- filter(data_temp, Churn == "True" )
+churn.no <- filter(data_temp, Churn == "False" )
+```
+
+Account.Length variable is not useful for predicting churn.
+
+```{r}
+t.test(churn.yes$Account.Length, churn.no$Account.Length)
+```
+
+VMail.Message variable is useful for predicting churn
+
+```{r}
+t.test(churn.yes$VMail.Message, churn.no$VMail.Message)
+```
+
+Day.Mins variable is useful for predicting churn
+
+```{r}
+t.test(churn.yes$Day.Mins, churn.no$Day.Mins)
+```
+
+Day.Calls variable is not useful for predicting churn
+
+```{r}
+t.test(churn.yes$Day.Calls, churn.no$Day.Calls)
+```
+
+Day.Charge variable is useful for predicting churn
+
+```{r}
+t.test(churn.yes$Day.Charge, churn.no$Day.Charge)
+```
+
+Eve.Mins variable is useful for predicting churn
+
+```{r}
+t.test(churn.yes$Eve.Mins, churn.no$Eve.Mins)
+```
+
+Eve.Calls variable is not useful for predicting churn
+
+```{r}
+t.test(churn.yes$Eve.Calls, churn.no$Eve.Calls)
+```
+
+Eve.Charge variable is useful for predicting churn
+
+```{r}
+t.test(churn.yes$Eve.Charge, churn.no$Eve.Charge)
+```
+
+Night.Mins variable is useful for predicting churn
+
+```{r}
+t.test(churn.yes$Night.Mins, churn.no$Night.Mins)
+```
+
+Night.Calls variable is not useful for predicting churn
+
+```{r}
+t.test(churn.yes$Night.Calls, churn.no$Night.Calls)
+```
+
+Night.Charge variable is useful for predicting churn
+
+```{r}
+t.test(churn.yes$Night.Charge, churn.no$Night.Charge)
+```
+
+Intl.Mins variable is useful for predicting churn
+
+```{r}
+t.test(churn.yes$Intl.Mins, churn.no$Intl.Mins)
+```
+
+Intl.Calls variable is useful for predicting churn
+
+```{r}
+t.test(churn.yes$Intl.Calls, churn.no$Intl.Calls)
+```
+
+Variable is useful for predicting churn
+
+```{r}
+t.test(churn.yes$Intl.Charge, churn.no$Intl.Charge)
+```
+
+Variable is useful for predicting churn
+
+```{r}
+t.test(churn.yes$CustServ.Calls, churn.no$CustServ.Calls)
+```
+
+```{r}
+t.test(churn.yes$VMail.Plan, churn.no$VMail.Plan)
+```
+
+### Normalize
+
+```{r}
+data_temp <- data %>% select(VMail.Message,Day.Mins,Day.Charge,Eve.Mins,Eve.Charge,Night.Mins,Night.Charge,Intl.Mins,Intl.Calls,Intl.Charge,Intl.Plan,VMail.Plan)
+
+data_temp <- decode(data_temp, "Intl.Plan")
+data_temp <- decode(data_temp, "VMail.Plan")
+data_temp$keyIntl.Planno <- data_temp$keyVMail.Planno <- NULL 
+
+colnames(data_temp)[which(names(data_temp) == "keyIntl.Planyes")] <- "Intl.Plan"
+colnames(data_temp)[which(names(data_temp) == "keyVMail.Planyes")] <- "VMail.Plan"
+data_temp$Churn <- factor(data$Churn)
+
+# normlize
+numeric.index <- unlist(lapply(data_temp, is.numeric)) 
+data_temp[,numeric.index] <- data.frame(lapply(data_temp[,numeric.index], normalize))
+```
+
+### Split data set
+
+```{r}
+trainIndex <- createDataPartition(data_temp$Churn,
+                                  p = .7, 
+                                  list = FALSE, 
+                                  times = 1)
+train <- data_temp[ trainIndex,]
+test  <- data_temp[-trainIndex,]
+
+#train <- data_temp
+train_churn.x <- train[, -ncol(train)]
+train_churn.y <- train[, c("Churn")]
+
+test_churn.x <- test[, -ncol(test)]
+test_churn.y <- test[, c("Churn")]
+```
+
+### Model 1 (caret)
+
+```{r}
+set.seed(1)
+churn.m1 <- caret::train(train_churn.x, train_churn.y,
+                          method = "nnet",
+                          tuneGrid = expand.grid(
+                            .size = c(5),
+                            .decay = 0.1),
+                          trControl = trainControl(method = "cv",
+                                                   number = 10,
+                                                   verboseIter = FALSE),
+                          MaxNWts = 10000,
+                          maxit = 100)
+
+train_churn.yhat1 <- predict(churn.m1)
+
+
+lift_results <- data.frame(Churn = test_churn.y)
+lift_results$nnet <- predict(churn.m1, newdata = test_churn.x, type = "prob")[,"False"]
+
+caret::confusionMatrix(xtabs(~train_churn.yhat1 + train_churn.y))
+caret::confusionMatrix(xtabs(~train_churn.yhat1 + train_churn.y), mode = "prec_recall")
+
+
+test_churn.yhat1 <- predict(churn.m1, newdata = test_churn.x)
+caret::confusionMatrix(xtabs(~test_churn.yhat1 + test_churn.y))
+caret::confusionMatrix(xtabs(~test_churn.yhat1 + test_churn.y), mode = "prec_recall")
+
+#plotnet(churn.m1)
+
+#perf <- performance(test_churn.yhat1,"tpr","fpr")
+#plot(perf, main="ROC curve", colorize=T)
+ 
+# And then a lift chart
+#perf <- performance(test_churn.yhat1,"lift","rpp")
+#plot(perf, main="lift curve", colorize=T)
+```
+
+### Model 2 (caret)
+
+```{r, echo=FALSE}
+set.seed(1)
+churn.m2 <- caret::train(train_churn.x, train_churn.y,
+                          method = "nnet",
+                          tuneGrid = expand.grid(
+                            .size = c(10),
+                            .decay = 0.1),
+                          trControl = trainControl(method = "cv",
+                                                   number = 10,
+                                                   verboseIter = FALSE),
+                          MaxNWts = 50000,
+                          maxit = 100)
+
+train_churn.yhat1 <- predict(churn.m2)
+caret::confusionMatrix(xtabs(~train_churn.yhat1 + train_churn.y))
+caret::confusionMatrix(xtabs(~train_churn.yhat1 + train_churn.y), mode = "prec_recall")
+
+
+test_churn.yhat1 <- predict(churn.m2, newdata = test_churn.x)
+caret::confusionMatrix(xtabs(~test_churn.yhat1 + test_churn.y))
+caret::confusionMatrix(xtabs(~test_churn.yhat1 + test_churn.y), mode = "prec_recall")
+```
+
+### Model 3 (caret)
+
+```{r, echo=FALSE}
+set.seed(1)
+churn.m3 <- caret::train(train_churn.x, train_churn.y,
+                          method = "nnet",
+                          trace = FALSE,
+                         
+                         
+                          tuneGrid = expand.grid(
+                            .size = c(40),
+                            .decay = 0.1),
+                          trControl = trainControl(method = "cv",
+                                                   number = 10,
+                                                   verboseIter = FALSE),
+                          MaxNWts = 50000,
+                          maxit = 100)
+
+train_churn.yhat1 <- predict(churn.m3)
+caret::confusionMatrix(xtabs(~train_churn.yhat1 + train_churn.y))
+caret::confusionMatrix(xtabs(~train_churn.yhat1 + train_churn.y), mode = "prec_recall")
+
+
+test_churn.yhat1 <- predict(churn.m3, newdata = test_churn.x)
+caret::confusionMatrix(xtabs(~test_churn.yhat1 + test_churn.y))
+caret::confusionMatrix(xtabs(~test_churn.yhat1 + test_churn.y), mode = "prec_recall")
+```
+
+### Model 4 (neuralnet)
+
+```{r}
+train <- decode(train, "Churn")
+train$keyChurnTrue <- NULL 
+colnames(train)[which(names(train) == "keyChurnFalse")] <- "Churn"
+
+churn.m4  = neuralnet(Churn~VMail.Message+Day.Mins+Day.Charge+Eve.Mins+Eve.Charge+Night.Mins+Night.Charge+Intl.Mins+Intl.Calls+Intl.Charge+Intl.Plan+VMail.Plan, train, hidden = 1 , linear.output = T )
+plot(churn.m4)
+```
+
+## Problem 13
+
+For model 1, Days.Min, Day.Charge, and Intl.Plan are the most important variables for classifying churn
+
+```{r}
+imp<-varImp(churn.m1)
+plot(imp)
+```
+
+For model 2, Intl.Plan and Intl.Calls are the most important variables for classifying churn
+
+```{r}
+imp<-varImp(churn.m2)
+plot(imp)
+```
+
+For model 3, Intl.Plan are the most important variable for classifying churn
+
+```{r}
+imp<-varImp(churn.m3)
+plot(imp)
+```
+
+```{r}
+# get the weightst
+wts <- neuralweights(churn.m4)
+struct <- wts$struct
+wts <- unlist(wts$wts)
+
+# plot
+plotnet(wts, struct = struct)
+
+rel_imp <- garson(churn.m4, bar_plot = FALSE)$rel_imp
+cols <- colorRampPalette(c('lightgreen', 'darkgreen'))(3)[rank(rel_imp)]
+ 
+plotnet(churn.m4, circle_col = list(cols, 'lightblue'))
+```
+
+## Problem 14
+
+|Model|Rationale|
+|----|----|
+|Decision Tree | Decision trees have an easy to follow natural flow.  Very useful as modeling techniques and provide visual representations of the data.|
+|Neural Networks| Not so easy to understand from the visual representation. Handles binary data better than decision trees. |
+
+Neural Network achieved 92.5% accuracy on a data set while the decision tree model only achieved 91.9%
+
+|Model|Variables|
+|----|----|
+|NNET| Days.Min, Day.Charge, and Intl.Plan |
+|CART| Day.Charge, Day.Mins, Intl.Plan, and Intl.Charge|
+|C4.5| Days.Min and Intl.Plan |
+
+All three model agree that Days.Min, Intl.Plan are the most important factor to predict churn.
+
+# Chapter 15
+
+```{r, include=FALSE}
+churn <-read.table("churn.txt", 
+                   header = T, 
+                   sep=',', na.strings=c('','NA'), stringsAsFactors = FALSE)
+names(churn) <- c("State","Account.Length","Area.Code","Phone","Intl.Plan","VMail.Plan","VMail.Message","Day.Mins" ,"Day.Calls"  ,"Day.Charge","Eve.Mins" ,"Eve.Calls","Eve.Charge","Night.Mins","Night.Calls" ,"Night.Charge","Intl.Mins" ,"Intl.Calls","Intl.Charge","CustServ.Calls" ,"Churn")
+
+churn <- churn %>% select(VMail.Message,Day.Mins,Day.Charge,Eve.Mins,Eve.Charge,Night.Mins,Night.Charge,Intl.Mins,Intl.Calls,Intl.Charge,Intl.Plan,VMail.Plan,Churn)
+
+
+numeric.index <- unlist(lapply(churn, is.numeric)) 
+churn[,numeric.index] <- data.frame(lapply(churn[,numeric.index], normalize))
+```
+
+## Split churn dat set
+
+```{r}
+trainIndex <- createDataPartition(churn$Churn, p = .7, list = FALSE, times = 1)
+train <- churn[ trainIndex,]
+test  <- churn[-trainIndex,]
+
+train_churn.x <- train[, -ncol(train)]
+train_churn.y <- train[, c("Churn")]
+test_churn.x <- test[, -ncol(test)]
+test_churn.y <- test[, c("Churn")]
+```
+
+### Problem 27
+
+#### Cost Matrix
+
+```{r}
+costs <- matrix(c(0, 1, 4, 0), nrow = 2)
+rownames(costs) <- colnames(costs) <- c("False", "True")
+```
+
+#### CART (no cost)
+
+```{r}
+
+#churn.C50 <- C5.0(train[,1:12],as.factor(train[,13]))
+#summary(churn.C50)
+
+#Recursive Partitioning and Regression Trees
+modelCART <- rpart(Churn ~ ., data = train, method = "class")
+print(modelCART)
+summary(modelCART)
+rpart.plot(modelCART)
+modelCART$variable.importance
+
+
+train_churn.yhat1 <- predict(modelCART, newdata = train_churn.x, type="class")
+
+caret::confusionMatrix(xtabs(~train_churn.yhat1 + train_churn.y))
+caret::confusionMatrix(xtabs(~train_churn.yhat1 + train_churn.y), mode = "prec_recall")
+
+test_churn.yhat1 <- predict(modelCART, newdata = test_churn.x, type="class")
+
+caret::confusionMatrix(xtabs(~test_churn.yhat1 + test_churn.y))
+caret::confusionMatrix(xtabs(~test_churn.yhat1 + test_churn.y), mode = "prec_recall")
+```
+
+#### CART (cost)
+
+```{r}
+costs<-list(loss=matrix(c(0,1,4,0), ncol=2, byrow=TRUE))
+
+#Recursive Partitioning and Regression Trees
+modelCART.Cost <- rpart(Churn ~ ., 
+                   data = train, 
+                   method = "class",
+                   parms=costs)
+
+print(modelCART.Cost)
+summary(modelCART.Cost)
+rpart.plot(modelCART.Cost)
+modelCART.Cost$variable.importance
+
+
+train_churn.yhat1.cost <- predict(modelCART.Cost, newdata = train_churn.x, type="class")
+
+caret::confusionMatrix(xtabs(~train_churn.yhat1.cost + train_churn.y))
+caret::confusionMatrix(xtabs(~train_churn.yhat1.cost + train_churn.y), mode = "prec_recall")
+
+test_churn.yhat1.cost <- predict(modelCART.Cost, newdata = test_churn.x, type="class")
+
+caret::confusionMatrix(xtabs(~test_churn.yhat1.cost + test_churn.y))
+caret::confusionMatrix(xtabs(~test_churn.yhat1.cost + test_churn.y), mode = "prec_recall")
+```
+
+```{r}
+test_churn.yhat1.nocost <- predict(modelCART, newdata = test_churn.x, type="prob")
+test_churn.yhat1.cost <- predict(modelCART.Cost, newdata = test_churn.x, type="prob")
+
+m1 <-data.frame(NoCost=test_churn.yhat1.nocost[,2])
+m2 <-data.frame(NoCost=test_churn.yhat1.nocost[,2], Cost=test_churn.yhat1.cost[,2])
+
+m2$Churn <- m1$Churn <- test$Churn
+our.lift1 <-lift(Churn~NoCost,data=m1)
+our.lift2 <-lift(Churn~NoCost+Cost,data=m2)
+
+
+xyplot(our.lift1,plot="lift", auto.key=list(columns=1), main="Lift form Models without cost")
+xyplot(our.lift2,plot="lift", auto.key=list(columns=2), main="Lift form Models with and without cost")
+
+xyplot(our.lift1,plot="gain", auto.key=list(columns=1), main="Gain for Models without cost")
+xyplot(our.lift2,plot="gain", auto.key=list(columns=2), main="Gain for Models with and without cost")
+```
+
+```{r}
+trainIndex <- createDataPartition(data_temp$Churn, p = .7, list = FALSE, times = 1)
+churn$Churn <- as.factor(churn$Churn)
+
+train <- churn[ trainIndex,]
+test  <- churn[-trainIndex,]
+
+train_churn.x <- train[, -ncol(train)]
+train_churn.y <- train[, c("Churn")]
+test_churn.x <- test[, -ncol(test)]
+test_churn.y <- test[, c("Churn")]
+```
+
+#### C5 (no cost)
+
+```{r}
+modelC5 <- C50::C5.0(train_churn.x, train_churn.y)
+summary(modelC5)
+#plot(modelC5)
+
+train_churn.yhat1 <- predict(modelC5, newdata = train_churn.x, type="class")
+caret::confusionMatrix(xtabs(~train_churn.yhat1 + train_churn.y))
+caret::confusionMatrix(xtabs(~train_churn.yhat1 + train_churn.y), mode = "prec_recall")
+
+
+test_churn.yhat1 <- predict(modelC5, newdata = test_churn.x, type="class")
+caret::confusionMatrix(xtabs(~test_churn.yhat1 + test_churn.y))
+caret::confusionMatrix(xtabs(~test_churn.yhat1 + test_churn.y), mode = "prec_recall")
+```
+
+#### C5 (cost)
+
+```{r}
+cost_mat <- matrix(c(0, 1, 4, 0), nrow = 2)
+rownames(cost_mat) <- colnames(cost_mat) <- c("True", "False")
+
+modelC5.Cost <- C50::C5.0(train_churn.x, 
+                   train_churn.y,
+                   costs = cost_mat,
+                   control = C5.0Control(CF=.1))
+
+
+summary(modelC5.Cost)
+#plot(modelC5.Cost)
+
+test_churn.yhat1.cost <- predict(modelC5.Cost, newdata = test_churn.x, type="class")
+caret::confusionMatrix(xtabs(~test_churn.yhat1.cost + test_churn.y))
+caret::confusionMatrix(xtabs(~test_churn.yhat1.cost + test_churn.y), mode = "prec_recall")
+```
+
+### Problem 27
+
+In a typical churn model, in which interceding with a potential churner is relatively cheap
+but losing a customer is expensive, which error is more costly, a false negative or a false
+positive (where positive = customer predicted to churn)? Explain.
+
+A classification of Churn == True is considered to be negative, where as Churn == False is considered to be positive.  The condition where a customer was predicted to not churn but in fact churn is the most costly error. This is the false negative.
+
+A total of 80.64% of the classifications made by this model are correct, while 19.33% are wrong.
+This model identify a high proportion of the customers who are not going to churn (positive) at a rate of 92.14% This model strugles to identify a high proportion of the customers who are negative (Churn == TRUE).
+
+### Problem  28
+
+|Performance Variable| Model w/o Cost| Model w/ Cost| Outcome |
+|---|---|---|---|
+|False positive| 10 | 20 | Increased in false positve |
+|False negative| 74 | 66 | Decrease in false negative |
+|Sensitivity| 0.9882767 | 0.9765533 | Sensitivity decreased |
+|Specificity| 0.4861111 | 0.5416667| Specificity increased |
+|Overall error| 0.0842528 | 0.0862588 | Overall error increased |
+|Accuracy | 0.9157472 | 0.9137412 | Accuracy decreased |
+
+### Problem 38
+
+```{r}
+# Plot lift curve
+trellis.par.set(caretTheme())
+lift_obj <- lift(Churn ~ nnet, lift_results)
+
+# plot the lift curve
+plot(lift_obj, values = c(20,33,40, 50), auto.key = list(columns = 1,
+lines = TRUE,
+points = FALSE))
+
+# ggplot of the lift object
+ggplot(lift_obj, values = c(20,33,40, 50))
+```
+

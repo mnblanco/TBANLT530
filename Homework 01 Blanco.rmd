@@ -1,0 +1,527 @@
+---
+title: "Homework 01"
+author: "Marjorie Blanco"
+date: "January 6, 2018"
+output:
+  word_document: default
+  html_document:
+    number_sections: yes
+    toc: yes
+    toc_float: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(SciencesPo)
+library(ggplot2)
+library("moments")
+```
+
+# Homework 01
+
+## 01 Identify Data Mining Task(s)
+
+a. Estimation, the target is the number of points.
+
+b. Association, the target is the proportion of Sunnis and Shias in a strategic area.
+
+c. Classification, either flock of geese or incoming nuclear missile.
+
+d. Clustering, the target are the groups that have similar donation profile to find the best groups(s)
+
+e. Classification, the target is to classify sequence of financial and residential move as indicator for potential terrorist acts.
+
+f. Prediction, the target is the expeect change in stock price for companies with similar price/earning ratios.  
+
+### Stock Price Data
+
+```{r}
+stock <- data.frame(c(10,7,20,12,75,15,9,18,4,12,8,14))
+colnames(stock) <- c("price")
+stock
+```
+
+## 13 Measures of Central Tendencies 
+
+```{r}
+getmode <- function(v) {
+   uniqv <- unique(v)
+   uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+```
+
+The mode is the measurement that occurs the most often.  The mode of the stock price is `r getmode(stock$price)`
+
+The mean is the sum of the measurements divided by the total number of measurements. The mean of the stock price is `r mean(stock$price)`
+
+The media is defined as the middle value when the measuremnts are arranged from lowest to highest.  The median of the stock price is `r median(stock$price)`
+
+
+```{r}
+mean(stock$price)
+median(stock$price)
+getmode(stock$price)
+summary(stock$price)
+```
+
+#14 Standard deviation
+
+The mode of the stock price is `r sd(stock$price)`
+
+```{r}
+sd(stock$price)
+```
+
+The standard deviation is the measure of how spread out data values are around the mean, defined as the square root of the variance.  Standard deviation serves as a measure of uncertainty.
+
+```{r, warning=FALSE}
+ggplot(stock) +
+  geom_histogram(aes(x=price), bins = 30) +
+  xlab("Stock Price") +
+  labs(title = "Histogram of Stock Price") +
+  labs(caption = "(Source: Data Mining and Predictive Analytics)") +
+  geom_vline(xintercept = mean(stock$price), linetype="dotted", 
+                color = "blue", size=1.5) +
+  geom_vline(xintercept = median(stock$price), linetype="solid", 
+                color = "red", size=1.5) +
+  geom_vline(xintercept = getmode(stock$price), linetype="dashed", 
+                color = "green", size=1.5) +
+  annotate("text", label = "mean", x = mean(stock$price)+4, y = 2, size = 4, colour = "blue") +
+  annotate("text", label = "median", x = median(stock$price)-4, y = 2, size = 4, colour = "red") +
+  annotate("text", label = "mode", x = getmode(stock$price)-4, y = 1.8, size = 4, colour = "green") 
+```
+
+The distribution is right skewed, having a tail on the right direction and a single peak.  The mean is pulled in the direction of the tail.  The median falls between the mode and the mean.
+
+#15 Min-Max
+
+```{r}
+mi <- min(stock$price)
+ma <- max(stock$price)
+me <- mean(stock$price)
+md <- median(stock$price)
+std <- sd(stock$price)
+minmax <- (stock$price - mi)/(ma - mi)
+minmax
+minmax <- (20 - mi)/(ma - mi)
+
+stock$norm_price <- Normalize(stock, y=price)
+
+ggplot(stock) +
+  geom_histogram(aes(x=norm_price), bins = 30) +
+  xlab("Stock Price") +
+  labs(title = "Histogram of Normalized Stock Price") +
+  labs(caption = "(Source: Data Mining and Predictive Analytics)")
+
+```
+
+#16 Midrange
+
+```{r}
+getmidrange <- function(v) {
+   (max(v) + min(v))/2
+}
+```
+
+The midrange of the stock price is `r getmidrange(stock$price)`
+
+```{r}
+getmidrange(stock$price)
+```
+
+#17 Standardize Z-Score 
+
+```{r}
+getzscore <- function(v, value) {
+   (value - mean(v))/sd(v)
+}
+```
+
+The Standardize Z-Score for `$20` is `r getzscore(stock$price, 20)`
+
+```{r}
+getzscore(stock$price, 20)
+```
+
+#18 Decimal Scaling
+
+```{r}
+getscaling <- function(value) {
+   value/10**2
+}
+```
+
+The Standardize Z-Score for `$20` is `r getscaling(20)`
+
+```{r}
+getscaling(20)
+```
+
+#19 Skewness
+
+```{r}
+getskewness <- function(v) {
+   3 * (mean(v) - median(v)) / sd(v)
+}
+```
+
+The skewness of the stock price is  is `r getskewness(stock$price)`
+
+```{r}
+getskewness(stock$price)
+```
+
+## 20 Reasons to Normalize numeric variales
+
+Data normalization is the process of rescaling numeric variable(s) to 0 to 1 range.
+Normalization is a good technique to use when the distribution of data is unkown or when the distribution is not Gaussian.  Many machine learning algorithms expect normalized data.
+
+## 21 Standard normal distributions
+
+Normal distributions are:
+
+- symmetric
+
+- unimodal
+
+- asymptotic
+
+- mean, median, and mode are all equal. 
+
+A normal distribution is symmetrical around its center. The right side of the center is a mirror image of the left side.
+
+```{r}
+set.seed(1)
+xseq <- seq(-3,3,.01)
+densities<-dnorm(xseq, 0,1)
+
+plot(xseq, densities, col="darkgreen",xlab="", ylab="Density", type="l",lwd=2, cex=2, main="Standard Normal", cex.axis=.8)
+```
+
+## 22 Symmetric distribution counter example
+
+A symmetric distribution does not ensure normality.
+
+- The bimodal distribution can be symmetrical if the two peaks are mirror images.
+
+- The uniform distribution is symmetric.
+
+```{r}
+set.seed(1)
+x=seq(1,5,length=200)
+y=rep(1/4,200)
+plot(x,y,type="l",xlim=c(0,6),ylim=c(0,0.4),lwd=2,ylab="p")
+polygon(c(1,x,5),c(0,y,0),col="lightgray",border=NA)
+```
+
+## 23 QQ plot
+
+The QQ plot is a graphical tool used to assess if a data distribution is normal or exponential.  If data is normally distributed, the QQ plot points will fall close to a straight line. 
+
+```{r}
+qqnorm(stock$price,
+       datax = TRUE,
+       col = "red",
+       main = "Normal Q-Q Plot of stock price")
+qqline(stock$pric,
+       datax = TRUE,
+       col = "blue")
+```
+
+## 24 Outliers
+
+The z-score for stock price `$75` is `r getzscore(stock$price, 75)`.  This data point is an extreme outlier.
+
+The stock price `$75` is an outlier based on IQR method, since 75 > `r quantile(stock$price, .75) + 1.5 * IQR(stock$price)`
+
+
+```{r}
+ggplot(data = stock, aes(x="Stock Price", y=price))+
+  geom_boxplot(outlier.colour="red") +
+  ggtitle("Boxplot of Stock Price") +
+  xlab("") +
+  ylab("Stock Price")
+
+qqnorm(stock$price)
+
+z75 <- getzscore(stock$price, 75)
+z75
+
+stock$z.price <- (stock$price - mean(stock$price))/sd(stock$price)
+stock$z.price
+
+lower <- quantile(stock$price, .25) - 1.5 * IQR(stock$price) 
+upper <- quantile(stock$price, .75) + 1.5 * IQR(stock$price)
+lower
+upper
+```
+
+## 25 Outliers
+
+The following are outliers based on Z-score and IQR method:
+
+```{r}
+#Z-score method
+stock$price[stock$price < lower | stock$price > upper]
+
+#IQR method
+stock$price[stock$z.price < -3 | stock$z.price > 3]
+```
+
+## 26 Outlier removal effect
+
+The median did not change but the mean decreased.  Outlier are values out of line with the normal data set. The outlier can push the mean of the data out of its usual position.
+
+```{r}
+#Original data set
+summary(stock$price)
+
+#Original data set with outlier removed
+summary(stock[stock$price < 75, 1])
+```
+
+## 33 Missing data
+
+### Read dataset
+
+```{r}
+churn <- read.csv("churn.txt", stringsAsFactors = FALSE)
+```
+
+There is no missing values in this data set.
+
+```{r}
+any(is.na(churn))
+str(churn)
+```
+
+## 34 Compare Area Code and State
+
+There is an apparent abnomality between the number of area code and state.  Based on the number of states, I expected to see more than just 3 unique area code.
+
+```{r}
+ggplot(churn, aes(x=factor(Area.Code))) +
+  geom_bar() +
+  labs(x="Area Code", y="Count") +
+  ggtitle("Chart of Area Code") +
+  labs(caption = "(Source: Data Mining and Predictive Analytics)")
+
+ggplot(churn, aes(x=State)) +
+  geom_bar() +
+  labs(x="State", y="Count") +
+  ggtitle("Chart of State") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(caption = "(Source: Data Mining and Predictive Analytics)") 
+```
+
+## 35 Outlier determination
+
+```{r, warning=FALSE}
+ggplot(data = churn, aes(x="Customer Service Calls", y=CustServ.Calls))+
+  geom_boxplot(outlier.colour="red") +
+  ggtitle("Boxplot of Customer Service Call") +
+  xlab("") +
+  ylab("Number of calls to customer service")
+ggplot(data = churn, aes(x=CustServ.Calls))+
+  geom_histogram() +
+  xlab("Customer Service Calls") +
+  ylab("Frequency")
+```
+
+There are a number of outliers among the number of calls to customer service.
+
+```{r}
+z <- (churn$CustServ.Calls - mean(churn$CustServ.Calls))/sd(churn$CustServ.Calls)
+churn$CustServ.Calls[abs(z) > 3]
+
+lower <- quantile(churn$CustServ.Calls, .25) - 1.5 * IQR(churn$CustServ.Calls) 
+upper <- quantile(churn$CustServ.Calls, .75) + 1.5 * IQR(churn$CustServ.Calls)
+lower
+upper
+
+churn$CustServ.Calls[churn$CustServ.Calls < lower | churn$CustServ.Calls > upper]
+```
+
+## 37 Z-Score Standardization
+
+```{r}
+m <- mean(churn$Day.Mins)
+s <- sd(churn$Day.Mins)
+z.Day.Mins <- (churn$Day.Mins - m) /s
+```
+
+```{r}
+
+ggplot(data = churn, aes(x=Day.Mins))+
+  geom_histogram(binwidth = 30) +
+  geom_vline(xintercept = mean(churn$Day.Mins), linetype="dotted", 
+                color = "green", size=1.5) +
+  geom_vline(xintercept = mean(churn$Day.Mins) + 2*sd(churn$Day.Mins), linetype="dashed", 
+                color = "yellow", size=1.5) +
+  geom_vline(xintercept = mean(churn$Day.Mins) - 2*sd(churn$Day.Mins), linetype="dashed", 
+                color = "yellow", size=1.5) +
+  geom_vline(xintercept = mean(churn$Day.Mins) + 3*sd(churn$Day.Mins), linetype="solid", 
+                color = "red", size=1.5) +
+  geom_vline(xintercept = mean(churn$Day.Mins) - 3*sd(churn$Day.Mins), linetype="solid", 
+                color = "red", size=1.5) +
+  annotate("text", label = "Normal", x = 315, y = 260, size = 4, colour = "yellow", angle = 90) +
+  annotate("text", label = "Normal", x = 40, y = 260, size = 4, colour = "yellow", angle = 90)  +
+  annotate("text", label = "Extreme", x = 380, y = 260, size = 4, colour = "red", angle = 90) +
+  annotate("text", label = "Extreme", x = -5, y = 260, size = 4, colour = "red", angle = 90)
+```
+
+```{r}
+ggplot(data = churn, aes(x=z.Day.Mins))+
+  geom_histogram() +
+  geom_vline(xintercept = 0, linetype="dotted", 
+                color = "green", size=1.5) +
+  geom_vline(xintercept = 2, linetype="dashed", 
+                color = "yellow", size=1.5) +
+  geom_vline(xintercept = -2, linetype="dashed", 
+                color = "yellow", size=1.5) +
+  geom_vline(xintercept = 3, linetype="solid", 
+                color = "red", size=1.5) +
+  geom_vline(xintercept = -3, linetype="solid", 
+                color = "red", size=1.5) +
+  annotate("text", label = "Normal", x = 2.5, y = 260, size = 4, colour = "yellow", angle = 90) +
+  annotate("text", label = "Normal", x = -2.5, y = 260, size = 4, colour = "yellow", angle = 90)  +
+  annotate("text", label = "Extreme", x = 3.4, y = 260, size = 4, colour = "red", angle = 90) +
+  annotate("text", label = "Extreme", x = -3.4, y = 260, size = 4, colour = "red", angle = 90)
+```
+
+## 38 Skewness
+
+The Day Minutes data is skewed to the right since the median < mean.  The skewness for this data is nearly symmetric.  If the original distribution is positively skewed the distribution of Z-scores also will be positively skewed.
+
+```{r}
+skewness1 <- 3 * (mean(churn$Day.Mins) - median(churn$Day.Mins))/sd(churn$Day.Mins)
+skewness1
+skewness2 <- 3 * (mean(z.Day.Mins) - median(z.Day.Mins))/sd(z.Day.Mins)
+skewness2
+```
+
+## 39 Normal probabilty plot
+
+```{r}
+qqnorm(churn$Day.Mins,
+       datax = TRUE,
+       col = "red")
+qqline(churn$Day.Mins,
+       datax = TRUE,
+       col = "blue")
+```
+
+## 40 International Minutes
+
+The QQ pot for international minutes can be used to determine the data is not normal distributed.  Not all the value lie on the line.  There is a heavy tail on the bottom of the plot and a subtle tail on the top of the plot.  The points on the extreme ends of the plot are preventing the data from being normally distributed.
+
+As expected, we see a change in the mean once the outliers were removed. 
+
+```{r}
+qqnorm(churn$Intl.Mins,
+       datax = TRUE,
+       col = "red")
+qqline(churn$Intl.Mins,
+       datax = TRUE,
+       col = "blue")
+
+ggplot(data=churn, aes(x=Intl.Mins)) +
+  geom_histogram(bins = 30) +
+  annotate("rect", xmin = -1, xmax = 1.2, ymin = 0, ymax = 30,
+  alpha = .2) + 
+  annotate("rect", xmin = 19.5, xmax = 20.5, ymin = 0, ymax = 30,
+  alpha = .2) +
+  annotate("text", x = 0, y = 50, label = "Outliers") +
+  annotate("text", x = 20, y = 50, label = "Outliers") +
+  ggtitle("Histogram of Intl Mins")
+
+ggplot(data = churn, aes(x="Intl.Mins", y=Intl.Mins))+
+  geom_boxplot(outlier.colour="red") +
+  ggtitle("Boxplot of Intl Mins") +
+  xlab("") +
+  ylab("Intl Mins")
+
+churn_new <- data.frame(churn[churn$Intl.Mins > 0,"Intl.Mins"])
+colnames(churn_new) <- c("Intl.Mins")
+
+#NonZero Intl Mins
+
+qqnorm(churn_new$Intl.Mins,
+       datax = TRUE,
+       col = "red")
+
+qqline(churn_new$Intl.Mins,
+       datax = TRUE,
+       col = "blue")
+
+ggplot(data=churn_new, aes(x=Intl.Mins)) +
+  geom_histogram(bins = 30) +
+  ggtitle("Histogram of NonZero Intl Mins")
+
+#Outliers Removed Intl Mins
+
+
+lower <- quantile(churn$Intl.Mins, .25) - 1.5 * IQR(churn$Intl.Mins) 
+upper <- quantile(churn$Intl.Mins, .75) + 1.5 * IQR(churn$Intl.Mins)
+lower
+upper
+
+
+churn_new_o <- data.frame(churn[churn$Intl.Mins > lower & churn$Intl.Mins < upper,"Intl.Mins"])
+colnames(churn_new_o) <- c("Intl.Mins")
+
+
+qqnorm(churn_new_o$Intl.Mins,
+       datax = TRUE,
+       col = "red")
+qqline(churn_new_o$Intl.Mins,
+       datax = TRUE,
+       col = "blue")
+
+ggplot(data=churn_new_o, aes(x=Intl.Mins)) +
+  geom_histogram(bins = 30)   +
+  ggtitle("Histogram of Intl Mins - Outliers Removed")
+
+
+summary(churn$Intl.Mins)
+summary(churn_new)
+summary(churn_new_o)
+```
+
+## 41 Z-Score Standardized
+
+```{r}
+churn$Night.Mins.Z <- (churn$Night.Mins-mean(churn$Night.Mins))/sd(churn$Night.Mins)
+```
+
+The range from Night.Mins is between `r min(churn$Night.Mins.Z)` to `r max(churn$Night.Mins.Z)` . There are a number of normal and extreme outliers.
+
+```{r}
+
+ggplot(data=churn, aes(x=Night.Mins)) +
+  geom_histogram(bins = 30)   +
+  ggtitle("Histogram of Night Mins")
+
+
+
+ggplot(data=churn, aes(x=Night.Mins.Z)) +
+  geom_histogram(bins = 30)   +
+  ggtitle("Histogram of Night Mins Z-Score Standardized") +
+  geom_vline(xintercept = 0, linetype="dotted", 
+                color = "green", size=1.5) +
+  geom_vline(xintercept = 2, linetype="dashed", 
+                color = "yellow", size=1.5) +
+  geom_vline(xintercept = -2, linetype="dashed", 
+                color = "yellow", size=1.5) +
+  geom_vline(xintercept = 3, linetype="solid", 
+                color = "red", size=1.5) +
+  geom_vline(xintercept = -3, linetype="solid", 
+                color = "red", size=1.5) +
+  annotate("text", label = "Normal", x = 2.5, y = 260, size = 4, colour = "yellow", angle = 90) +
+  annotate("text", label = "Normal", x = -2.5, y = 260, size = 4, colour = "yellow", angle = 90)  +
+  annotate("text", label = "Extreme", x = 3.4, y = 260, size = 4, colour = "red", angle = 90) +
+  annotate("text", label = "Extreme", x = -3.4, y = 260, size = 4, colour = "red", angle = 90)
+
+summary(churn$Night.Mins)
+summary(churn$Night.Mins.Z)
+```

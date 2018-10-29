@@ -1,0 +1,1346 @@
+---
+title: "Project"
+author: "Marjorie Blanco"
+date: "February 7, 2018"
+output:
+  html_document:
+    number_sections: yes
+    toc: yes
+    toc_float: yes
+  word_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
+library(readxl)
+library(ggplot2)
+library(plyr)
+library(dplyr)
+library(tidyverse)
+library(car)
+library(psych)
+```
+
+```{r, warning=FALSE, include=FALSE}
+getskewness <- function(v) {
+   3 * (mean(v) - median(v)) / sd(v)
+}
+
+plotHistFunc <- function(x, f = "dodgerblue", na.rm = TRUE, ...) {
+  nm <- names(x)
+  for (i in seq_along(nm)) {
+    p <- ggplot(x,aes_string(x = nm[i])) + 
+      geom_histogram(alpha = .5, fill = f) +
+      scale_x_log10()
+    print(p)
+  }
+}
+
+
+plotHistIQRFunc <- function(x, f = "dodgerblue", na.rm = TRUE, ...) {
+  nm <- names(x)
+  for (i in seq_along(nm)) {
+    lower <- quantile(x[,i], .25) - (1.5 * IQR(x[,i])) 
+    upper <- quantile(x[,i], .75) + (1.5 * IQR(x[,i]))
+
+    p <- ggplot(x,aes_string(x = nm[i])) + 
+      geom_histogram(alpha = .5, fill = f) +
+      geom_vline(xintercept = upper, linetype="solid", color = "red", size=1.5) +
+      geom_vline(xintercept = lower, linetype="solid", color = "red", size=1.5) 
+    print(p)
+  }
+}
+
+
+plotHistZFunc <- function(x, f = "dodgerblue", na.rm = TRUE, ...) {
+  nm <- names(x)
+  for (i in seq_along(nm)) {
+    print(i)
+    lower <- quantile(x[,i], .25) - (1.5 * IQR(x[,i])) 
+    upper <- quantile(x[,i], .75) + (1.5 * IQR(x[,i]))
+
+    p <- ggplot(x,aes_string(x = nm[i])) + 
+      geom_histogram(alpha = .5, fill = f) +
+      geom_vline(xintercept = upper, linetype="solid", color = "red", size=1.5) +
+      geom_vline(xintercept = lower, linetype="solid", color = "red", size=1.5) 
+    print(p)
+  }
+}
+
+plotBarFunc <- function(x, na.rm = TRUE, ...) {
+  nm <- names(x)
+  for (i in seq_along(nm)) {
+    p <- ggplot(x,aes_string(x = nm[i])) + 
+      geom_bar(alpha = .5,fill = "dodgerblue") +
+      theme(axis.text.x = element_text(angle = 90, hjust = 1))
+    print(p)
+  }
+}
+
+getCor <- function(x, val) {
+  z <- cor(x)
+  zdf <- as.data.frame(as.table(z))
+  zdf <- arrange(zdf,desc(Freq))
+  print(zdf[zdf$Freq  > val & zdf$Var1 !=zdf$Var2 ,])
+}
+
+getX <- function(df, column)
+{
+  print(length(which(df[, column]!=0))/length(df[,column]))
+}
+
+qqplot.data <- function (vec) # argument: vector of numbers
+{
+  # following four lines from base R's qqline()
+  y <- quantile(vec[!is.na(vec)], c(0.25, 0.75))
+  x <- qnorm(c(0.25, 0.75))
+  slope <- diff(y)/diff(x)
+  int <- y[1L] - slope * x[1L]
+
+  d <- data.frame(resids = vec)
+
+  ggplot(d, aes(sample = resids)) + stat_qq() + geom_abline(slope = slope, intercept = int)
+
+}
+
+dataQuality <- function(x)
+{
+  round(length(which(x!=0))/length(x),5)* 100
+}
+
+
+replaceAverge <- function(df, column) {
+  x <- unique(df[df$column == 0, c("SMBL")])
+  df2  <- df %>% select(ID, SMBL, column) %>% filter(SMBL %in% x)
+  
+  df3 <- df2 %>% 
+    filter(i != 0) %>% 
+    group_by(SMBL) %>% 
+    summarise(n = n()) 
+  
+  for (i in df3[df3$n >= 2, c("SMBL")])
+  {
+    l1 <- df2 %>% filter(SMBL %in% i & column != 0)
+    l2 <- df2 %>% filter(SMBL %in% i & column == 0)
+
+    df[ df$ID %in% l2$ID ,column] <- mean(l2)
+  }
+  df
+}
+
+NA2mean <- function(x) replace(x, is.na(x), mean(x, na.rm = TRUE))
+```
+
+# Part one
+
+## Read data set
+
+```{r read1, warning=FALSE}
+AAERDATA <- read_excel("~/R/DataMining/Project/AAERDATAHWPart1.xlsx", skip=1, na="0")
+
+AAERDATA$ID <- seq.int(nrow(AAERDATA))
+AAERDATA1 <- AAERDATA[,c(1:6,97:99)]  # categorical
+AAERDATA <- AAERDATA[,c(7:96,100)]    # numerical
+```
+
+## Identify missing value
+
+Identify missing values and take appropriate action – eliminate, average value, etc. 
+Justify your decision.
+
+The missing values from following features were replaced using linear regression:
+
+- Sales
+
+- Closing Price
+
+- Number of employees
+
+Records with missing values were set to 0.  Records with "I" and "C" in numeric variables were set to 0.  Columns that contains with more than 85% zero values were removed.
+
+The rest of the missing values will be replaced using mean.
+
+
+### Converting data columns to numeric
+
+```{r convert, warning=FALSE}
+AAERDATA <- data.frame(lapply(AAERDATA, function(x) { as.numeric(x) }))
+```
+
+Continous variables are those with type `numberic`
+
+```{r numeric1}
+colnames(AAERDATA)[colnames(AAERDATA) == 'DATA.23'] <- 'DATA23'
+colnames(AAERDATA)[colnames(AAERDATA) == 'DATA.24'] <- 'DATA24'
+split(names(AAERDATA),sapply(AAERDATA, function(x) paste(class(x), collapse=" ")))
+```
+
+### Percetage of zeros
+
+Determine the percentage of zeros for each data column
+
+```{r, warning=FALSE}
+AAERDATA[is.na(AAERDATA)] <- 0
+data_col <- lapply(AAERDATA, function(x){ length(which(x!=0))/length(x)})
+data_col <- data.frame(data_col)
+AAERDATA3 <- AAERDATA[,data_col[1,] > 0.85]
+```
+
+The following columns were removed for having more than 85% of zeros.
+
+```{r}
+colnames(AAERDATA[,data_col[1,] <= 0.85])
+```
+
+```{r}
+colnames(AAERDATA[,data_col[1,] > 0.85])
+```
+
+Determine if any data column contains NAs
+
+```{r nas}
+colnames(AAERDATA)[colSums(is.na(AAERDATA)) > 0]
+```
+
+
+```{r}
+data_col <- data_col %>%
+   rownames_to_column %>% 
+   gather(var, value, -rowname) %>% 
+   spread(rowname, value)
+
+colnames(data_col) <- c("Variable","Freq")
+data_col <- data_col  %>% arrange(desc(Freq)) %>% filter(Freq > .5)
+
+getCor(AAERDATA3[,1:ncol(AAERDATA3)-1], val = 0.8)
+```
+
+```{r}
+getX(AAERDATA3, "DATA123")
+getX(AAERDATA3, "DATA18")
+```
+
+## Look for redundancies and errors.
+
+Remove numbers and period in the SMBL column.
+
+```{r smbl_clean}
+AAERDATA1$SMBL <- gsub("[0-9]*", "", AAERDATA1$SMBL)
+AAERDATA1$SMBL <- gsub("\\.", "", AAERDATA1$SMBL)
+```
+
+```{r plot1, warning=FALSE, error=FALSE} 
+plotHistFunc(AAERDATA3[,-43])
+```
+
+## Variable summary
+
+Identify mean, count, sum, median, standard deviation for – SALES, Price_close, Employees
+
+```{r setup1}
+AAERDATA3$SMBL <- AAERDATA1$SMBL
+AAERDATA3$yeara <- AAERDATA1$yeara
+AAERDATA3$ID <- AAERDATA$ID
+```
+
+### Sales
+
+The original data quality for Sales is `r round(length(which(AAERDATA3$DATA12!=0))/length(AAERDATA3$DATA12),3)*100`%.
+
+```{r sales1}
+dataQuality(AAERDATA3$DATA12)
+
+x <- unique(AAERDATA3[AAERDATA3$DATA12 == 0, c("SMBL")])
+AAERDATA4  <- AAERDATA3 %>% select(ID, SMBL, yeara, DATA12) %>% filter(SMBL %in% x)
+
+AAERDATA5 <- AAERDATA4 %>% 
+  filter(DATA12 != 0) %>% 
+  group_by(SMBL) %>% 
+  summarise(n = n()) 
+
+for (i in AAERDATA5[AAERDATA5$n > 2, c("SMBL")])
+{
+  l1 <- AAERDATA4 %>% filter(SMBL %in% i & DATA12 != 0)
+  l2 <- AAERDATA4 %>% filter(SMBL %in% i & DATA12 == 0)
+  fit <- lm(data = l1, DATA12~yeara)
+  AAERDATA3[ AAERDATA3$ID %in% l2$ID ,c("DATA12")] <- predict(fit, l2[,c("DATA12","yeara")]) 
+}
+
+dataQuality(AAERDATA3$DATA12)
+```
+
+The improved data quality for Sales is `r round(length(which(AAERDATA3$DATA12!=0))/length(AAERDATA3$DATA12),3)*100`% after missing values were predicted using linear regression.
+
+Mean: `r mean(AAERDATA3$DATA12)`
+
+Count: `r length(AAERDATA3$DATA12 != 0)`
+
+Sum: `r sum(AAERDATA3$DATA12)`
+
+Median: `r median(AAERDATA3$DATA12)`
+
+Standard: `r sd(AAERDATA3$DATA12)`
+
+```{r sales2, warning=FALSE}
+#Original data
+
+#Updated data
+sales_mean <- mean(AAERDATA3$DATA12)
+sales_count <- length(AAERDATA3$DATA12 != 0)
+sales_sum <- sum(AAERDATA3$DATA12)
+sales_median <- median(AAERDATA3$DATA12)
+sales_sd <- sd(AAERDATA3$DATA12)
+
+sales_mean
+sales_count
+sales_sum
+sales_median
+sales_sd
+
+plotHistFunc(data.frame(AAERDATA3$DATA12))
+```
+
+### Price at closing
+
+The original data quality for Price at closing is `r round(length(which(AAERDATA3$DATA24!=0))/length(AAERDATA3$DATA24),3)*100`%.
+
+```{r price1}
+dataQuality(AAERDATA3$DATA24)
+
+x <- unique(AAERDATA3[AAERDATA3$DATA24 == 0, c("SMBL")])
+AAERDATA4  <- AAERDATA3 %>% select(ID, SMBL, yeara, DATA24) %>% filter(SMBL %in% x)
+
+AAERDATA5 <- AAERDATA4 %>% 
+  filter(DATA24 != 0) %>% 
+  group_by(SMBL) %>% 
+  summarise(n = n()) 
+
+for (i in AAERDATA5[AAERDATA5$n > 2, c("SMBL")])
+{
+  l1 <- AAERDATA4 %>% filter(SMBL %in% i & DATA24 != 0)
+  l2 <- AAERDATA4 %>% filter(SMBL %in% i & DATA24 == 0)
+  fit <- lm(data = l1, DATA24~yeara)
+  AAERDATA3[ AAERDATA3$ID %in% l2$ID ,c("DATA24")] <- predict(fit, l2[,c("DATA24","yeara")]) 
+}
+
+dataQuality(AAERDATA3$DATA24)
+```
+
+The improved data quality for Price at closing is `r round(length(which(AAERDATA3$DATA24!=0))/length(AAERDATA3$DATA24),3)*100`% after missing values were predicted using linear regression.
+
+```{r price2}
+#Original data
+price_close_mean <- mean(AAERDATA$DATA24)
+price_close_count <- length(AAERDATA$DATA24 != 0)
+price_close_sum <- sum(AAERDATA$DATA24)
+price_close_median <- median(AAERDATA$DATA24)
+price_close_sd <- sd(AAERDATA$DATA24)
+
+price_close_mean
+price_close_count
+price_close_sum
+price_close_median
+price_close_sd
+
+#Updated data
+price_close_mean <- mean(AAERDATA3$DATA24)
+price_close_count <- length(AAERDATA3$DATA24)
+price_close_sum <- sum(AAERDATA3$DATA24)
+price_close_median <- median(AAERDATA3$DATA24)
+price_close_sd <- sd(AAERDATA3$DATA24)
+
+price_close_mean
+price_close_count
+price_close_sum
+price_close_median
+price_close_sd
+
+plotHistFunc(data.frame(AAERDATA3$DATA24))
+```
+
+### Number of Employees
+
+The original data quality for Number of employees is `r round(length(which(AAERDATA3$DATA29!=0))/length(AAERDATA3$DATA29),3)*100` %.
+
+```{r employee1}
+dataQuality(AAERDATA3$DATA29)
+
+x <- unique(AAERDATA3[AAERDATA3$DATA29 == 0, c("SMBL")])
+AAERDATA4  <- AAERDATA3 %>% select(ID, SMBL, yeara, DATA29) %>% filter(SMBL %in% x)
+
+AAERDATA5 <- AAERDATA4 %>% 
+  filter(DATA29 != 0) %>% 
+  group_by(SMBL) %>% 
+  summarise(n = n()) 
+
+for (i in AAERDATA5[AAERDATA5$n > 2, c("SMBL")])
+{
+  l1 <- AAERDATA4 %>% filter(SMBL %in% i & DATA29 != 0)
+  l2 <- AAERDATA4 %>% filter(SMBL %in% i & DATA29 == 0)
+  fit <- lm(data = l1, DATA29~yeara)
+  AAERDATA3[ AAERDATA3$ID %in% l2$ID ,c("DATA29")] <- predict(fit, l2[,c("DATA29","yeara")]) 
+}
+
+dataQuality(AAERDATA3$DATA2)
+```
+
+The improved data quality for Number of employees is `r round(length(which(AAERDATA3$DATA29!=0))/length(AAERDATA3$DATA29),3)*100`% after missing values were predicted using linear regression.
+
+```{r employee2}
+#Original data
+employees_mean <- mean(AAERDATA$DATA29)
+employees_count <- length(AAERDATA$DATA29 != 0)
+employees_sum <- sum(AAERDATA$DATA29)
+employees_median <- median(AAERDATA$DATA29)
+employees_sd <- sd(AAERDATA$DATA29)
+
+employees_mean
+employees_count
+employees_sum
+employees_median
+employees_sd
+
+#Updated data
+employees_mean <- mean(AAERDATA3$DATA29)
+employees_count <- length(AAERDATA3$DATA29)
+employees_sum <- sum(AAERDATA3$DATA29)
+employees_median <- median(AAERDATA3$DATA29)
+employees_sd <- sd(AAERDATA3$DATA29)
+
+employees_mean
+employees_count
+employees_sum
+employees_median
+employees_sd
+
+plotHistFunc(data.frame(AAERDATA3$DATA29))
+```
+
+
+```{r}
+data_col <- lapply(AAERDATA3, function(x){ length(which(x!=0))/length(x)})
+data_col <- data.frame(data_col)
+data_col
+```
+
+```{r, results="hide"}
+replace(AAERDATA3[,  -c(9,17,21,43:45)], TRUE, lapply(AAERDATA3[,  -c(9,17,21,43:45)], NA2mean))
+```
+
+```{r}
+data_col1 <- lapply(AAERDATA3, function(x){ length(which(x!=0))/length(x)})
+data_col1 <- data.frame(data_col1)
+data_col1
+```
+
+## Identify outliers 
+
+The z-method was selected to identified outlier 
+
+### SALES
+
+```{r}
+ggplot(data = AAERDATA, aes(x="Sales", y=DATA12))+
+  geom_boxplot(outlier.colour="red") +
+  ggtitle("Boxplot of Sales") +
+  xlab("") +
+  ylab("Sales")
+
+
+AAERDATA_NEW <- data.frame(AAERDATA$DATA12)
+colnames(AAERDATA_NEW) <- c("DATA12")
+
+plotHistIQRFunc(AAERDATA_NEW)
+
+lower <- quantile(AAERDATA_NEW$DATA12, .25) - (1.5 * IQR(AAERDATA_NEW$DATA12)) 
+upper <- quantile(AAERDATA_NEW$DATA12, .75) + (1.5 * IQR(AAERDATA_NEW$DATA12))
+lower
+upper
+
+
+#IQR method
+AAERDATA_NEW <- data.frame(AAERDATA_NEW$DATA12[AAERDATA_NEW$DATA12 <= upper])
+colnames(AAERDATA_NEW) <- c("DATA12")
+
+
+ggplot(data = AAERDATA_NEW, aes(x="Sales", y=DATA12))+
+  geom_boxplot(outlier.colour="red") +
+  ggtitle("Boxplot of Sales") +
+  xlab("") +
+  ylab("Sales")
+
+
+lower <- quantile(AAERDATA_NEW$DATA12, .25) - 1.5 * IQR(AAERDATA_NEW$DATA12) 
+upper <- quantile(AAERDATA_NEW$DATA12, .75) + 1.5 * IQR(AAERDATA_NEW$DATA12)
+lower
+upper
+
+
+plotHistIQRFunc(AAERDATA_NEW)
+```
+
+```{r sales3}
+AAERDATA$DATA12_Z <- scale(AAERDATA$DATA12, center = TRUE, scale = TRUE)
+
+ggplot(data = AAERDATA, aes(x=DATA12_Z))+
+  geom_histogram() +
+  geom_vline(xintercept = 3, linetype="solid", 
+                color = "red", size=1.5) +
+  geom_vline(xintercept = -3, linetype="solid", 
+                color = "red", size=1.5) 
+
+ggplot(data = AAERDATA, aes(x="Sales", y=DATA12))+
+  geom_boxplot(outlier.colour="red") +
+  ggtitle("Boxplot of Sales") +
+  xlab("") +
+  ylab("Sales")
+
+AAERDATA_NEW <- data.frame(AAERDATA$DATA12_Z[AAERDATA$DATA12_Z < 3])
+colnames(AAERDATA_NEW) <- c("DATA12_Z")
+AAERDATA_NEW$DATA12 <- AAERDATA$DATA12[AAERDATA$DATA12_Z < 3]
+
+ggplot(data = AAERDATA_NEW, aes(x=DATA12_Z))+
+  geom_histogram() +
+  geom_vline(xintercept = 3, linetype="solid", 
+                color = "red", size=1.5) +
+  geom_vline(xintercept = -3, linetype="solid", 
+                color = "red", size=1.5) 
+
+ggplot(data = AAERDATA_NEW, aes(x="Sales", y=DATA12))+
+  geom_boxplot(outlier.colour="red") +
+  ggtitle("Boxplot of Sales") +
+  xlab("") +
+  ylab("Sales")
+```
+
+### Price at closing
+
+```{r price3}
+AAERDATA$DATA24_Z <- scale(AAERDATA$DATA24, center = TRUE, scale = TRUE)
+
+ggplot(data = AAERDATA, aes(x=DATA24_Z))+
+  geom_histogram() +
+  geom_vline(xintercept = 3, linetype="solid", 
+                color = "red", size=1.5) +
+  geom_vline(xintercept = -3, linetype="solid", 
+                color = "red", size=1.5) 
+
+ggplot(data = AAERDATA, aes(x="Price at Closing", y=DATA24))+
+  geom_boxplot(outlier.colour="red") +
+  ggtitle("Boxplot of Price at Closing") +
+  xlab("") +
+  ylab("Price at Closing")
+
+AAERDATA_NEW <- data.frame(AAERDATA$DATA24_Z[AAERDATA$DATA24_Z < 3])
+colnames(AAERDATA_NEW) <- c("DATA24_Z")
+AAERDATA_NEW$DATA24 <- AAERDATA$DATA24[AAERDATA$DATA24_Z < 3]
+
+ggplot(data = AAERDATA_NEW, aes(x=DATA24_Z))+
+  geom_histogram() +
+  geom_vline(xintercept = 3, linetype="solid", 
+                color = "red", size=1.5) +
+  geom_vline(xintercept = -3, linetype="solid", 
+                color = "red", size=1.5)
+
+ggplot(data = AAERDATA_NEW, aes(x="Price at Closing", y=DATA24))+
+  geom_boxplot(outlier.colour="red") +
+  ggtitle("Boxplot of Price at Closing") +
+  xlab("") +
+  ylab("Price at Closing")
+```
+
+### Employees
+
+```{r employee3}
+AAERDATA$DATA29_Z <- scale(AAERDATA$DATA29, center = TRUE, scale = TRUE)
+
+ggplot(data = AAERDATA, aes(x=DATA29_Z))+
+  geom_histogram() +
+  geom_vline(xintercept = 3, linetype="solid", 
+                color = "red", size=1.5) +
+  geom_vline(xintercept = -3, linetype="solid", 
+                color = "red", size=1.5) 
+
+ggplot(data = AAERDATA, aes(x="Employees", y=DATA29))+
+  geom_boxplot(outlier.colour="red") +
+  ggtitle("Boxplot of Employees") +
+  xlab("") +
+  ylab("Employees")
+
+AAERDATA_NEW <- data.frame(AAERDATA$DATA29_Z[AAERDATA$DATA29_Z < 3])
+colnames(AAERDATA_NEW) <- c("DATA29_Z")
+AAERDATA_NEW$DATA29 <- AAERDATA$DATA24[AAERDATA$DATA29_Z < 3]
+
+
+ggplot(data = AAERDATA_NEW, aes(x=DATA29_Z))+
+  geom_histogram() +
+  geom_vline(xintercept = 3, linetype="solid", 
+                color = "red", size=1.5) +
+  geom_vline(xintercept = -3, linetype="solid", 
+                color = "red", size=1.5)  
+
+ggplot(data = AAERDATA_NEW, aes(x="Employees", y=DATA29))+
+  geom_boxplot(outlier.colour="red") +
+  ggtitle("Boxplot of Employees") +
+  xlab("") +
+  ylab("Employees")
+```
+
+## Calculate
+
+### Skewness for Sales
+
+```{r skew1}
+getskewness(AAERDATA$DATA12)
+```
+
+### Skewness for Z-Score standardized SALES
+
+```{r skew2}
+getskewness(AAERDATA$DATA12_Z)
+```
+
+### Is there evidence of SKEWNESS
+
+There is evidence of skewness for SALES.
+
+## Normal probability plots
+
+### Construct a normal probability plot for Employees
+
+```{r np_employee}
+length(which(AAERDATA3$DATA29!=0))/length(AAERDATA3$DATA29)
+
+ggplot(AAERDATA, aes(sample=DATA29)) +
+  stat_qq()
+
+qqplot.data(AAERDATA$DATA29)
+```
+
+### Derive a new variable – CASH/Total Assets
+
+```{r derive}
+length(which(AAERDATA3$DATA1!=0))/length(AAERDATA3$DATA1)
+length(which(AAERDATA3$DATA6!=0))/length(AAERDATA3$DATA6)
+AAERDATA$cash_asset_ratio <- AAERDATA$DATA1 / AAERDATA$DATA6
+```
+
+### Construct a normal probability plot for new Variable.
+
+```{r np_var}
+qqplot.data(AAERDATA$cash_asset_ratio)
+```
+
+# Part Two
+
+## Read data set
+
+```{r read2}
+AAERDATA <- read_excel("~/R/DataMining/Project/AAERDATAHWPart2.xlsx")
+
+#Replace columns names
+names(AAERDATA) <- sub("/", "_", names(AAERDATA))
+names(AAERDATA) <- sub(" ", "", names(AAERDATA))
+names(AAERDATA)[49] <- "LOG_DEFLTA" #69   "LOG(DEFLTA)=LOG(100*(TA_CPI))"
+names(AAERDATA)[51] <- "CAL1"       #71   "D60+D181" 
+names(AAERDATA)[52] <- "CAL2"       #72   "prc*data25+data6-data60"
+names(AAERDATA)[55] <- "Tobin"      #75   "Tobin'sNew" 
+names(AAERDATA)[57] <- "MVE_TL"     #77   "MVE_TL"
+
+names(AAERDATA) <- sub("\\(", "_", names(AAERDATA))
+names(AAERDATA) <- sub("\\)", "_", names(AAERDATA))
+names(AAERDATA) <- sub("=", "", names(AAERDATA))
+names(AAERDATA) <- sub("\\+", "_", names(AAERDATA))
+
+
+AAERDATA1 <- AAERDATA[,c(1:12)]  # categorical
+
+AAERDATA2 <- AAERDATA2A <- AAERDATA[,c(13:73)] # numerical   #13:46, 67:93
+
+AAERDATA2[is.na(AAERDATA2)] <- 0
+```
+
+```{r}
+summary(AAERDATA1)
+AAERDATA1 <- data.frame(lapply(AAERDATA1, function(x) { as.factor(x) }))
+```
+
+```{r}
+summary(AAERDATA2)
+```
+
+## Missing values and erros
+
+1.	Ensure no missing values or errors
+
+This data set had duplicated DATA columns.  Those columns were removed prior to loading to avoid errors during the loading process.  The 
+
+|Row|Original Value|New Value|
+|------:|------:|------:|
+|1|32416|9/30/1988|
+|3|37167|9/30/1988|
+|4|37167|10/30/2001|
+|5|37167|10/30/2001|
+
+```{r}
+AAERDATA2[is.na(AAERDATA2)] <- 0
+
+data_col <- lapply(AAERDATA2, function(x){ length(which(x!=0))/length(x)})
+data_col <- data.frame(data_col)
+
+#AAERDATA3 <- AAERDATA2[,data_col[1,] > 0.5]
+```
+
+## Standardize
+
+2.	Standardize the data where relevant – ie you don’t standardize GVKEY or SIC codes
+
+```{r}
+numeric.index <- unlist(lapply(AAERDATA2, is.numeric)) 
+
+#Normalize
+AAERDATA2.Z <- data.frame(lapply(AAERDATA2[,numeric.index], function(x) scale(x, center = FALSE, scale = TRUE)))
+
+colnames(AAERDATA2.Z) <- paste("Z", colnames(AAERDATA2.Z), sep = "_")
+
+plotHistFunc(AAERDATA2.Z)
+```
+
+## Variables Types
+
+3.	Which variables are categorical and which are numeric
+
+```{r}
+split(names(AAERDATA1),sapply(AAERDATA1, function(x) paste(class(x), collapse=" ")))
+```
+
+Continous variables are those with type `numeric`
+
+```{r}
+split(names(AAERDATA2),sapply(AAERDATA2, function(x) paste(class(x), collapse=" ")))
+```
+
+## Correlation
+
+4.	Examine numeric variables for correlation
+
+```{r}
+getCor(AAERDATA2,  val = 0.90)
+
+getCor(AAERDATA2.Z,  val = 0.90)
+
+```
+
+```{r}
+# Investigate: PRC (Price – Close) and DATA24 (PriceClose)
+# Action: remove DATA24
+# Reason: duplicate
+AAERDATA2$DATA24 <-  NULL
+
+# Investigate DATA60 (CommonEquityTotal) and DATA216 (StcKhldEqui)
+# Common Equity – Total
+# This item includes:
+#1. Common stock (including effects of common treasury stock)
+#2. Capital surplus
+#3. Retained earnings
+#4. Treasury stock adjustments for both common and nonredeemable preferred stock
+
+# Investigate CAL2 = DATA24 * DATA25 + DATA6 * DATA60 and	MVE_TL = DATA181 + MVEquity
+
+# Investigate CAL1: DATA6 (TotalAssets) + DATA181 (totalLiabi)
+# Action: remove DATA6 + DATA181 
+
+AAERDATA2$DATA6 <- NULL
+
+AAERDATA2$DATA181 <- NULL
+
+
+# Action: remove DATA216
+AAERDATA2$DATA216 <-  NULL
+
+
+# OPINC_TA = DATA178(OperatingIncaftDepr)/DATA6(TotalAssets)	EBIT_TA = EBIt/DATA6(TotalAssets)
+# remove DATA178, DATA6 and EBit
+
+AAERDATA2$DATA178 <- NULL
+
+AAERDATA2$EBit <- NULL
+
+
+# Investigate TotalDebt	= DATA9(LongTermDebtTotal) + DATA34x(DebtinCurrentLiabillities)
+# Action: remove DATA9 and DATA34x
+
+AAERDATA2$DATA9 <-  NULL
+
+AAERDATA2$DATA34x <-  NULL
+```
+
+## Bar chart (Categorical)
+5.	For the categorical variables construct a bar chart
+
+```{r}
+plotBarFunc(AAERDATA1[, c(2,6:11)])
+```
+
+## Cross tabulation (Categorical)
+
+6.	For each pair of categorical variables construct a cross tabulation
+
+```{r}
+nm <- names(AAERDATA1[,c(2,5:7,9:12)])
+for (i in nm) {
+  print(table(AAERDATA1[,i],AAERDATA1$bktype, dnn=c(i,"bktype")) )
+}
+```
+
+## Histogram (Numeric)
+
+7.	Construct a histogram of three numeric variables with an overlay of bankruptcy variable (bktype)
+
+```{r}
+AAERDATA2$bktype <- AAERDATA1$bktype
+nm <- names(AAERDATA2[,1:3])
+
+for (i in seq_along(nm)) {
+  p <- ggplot(AAERDATA2,aes_string(x = nm[i], fill = "bktype"),
+              aes(y=..density..)) + 
+    geom_histogram(alpha = .5) +
+    geom_density(alpha=.2, fill="#FF6666")
+  print(p)
+}
+```
+
+## Scatter plot (Numeric)
+
+8.	For three numeric variables construct a scatter plot for each pair.  (Should be three)
+
+```{r}
+nm <- c("DATA5","DATA12","DATA25")
+for (i in nm) {
+  for (j in nm) {
+    if (i != j) {
+      p <- ggplot(data=AAERDATA2, aes_string(x=i, y=j, col="bktype")) + 
+        geom_point() +
+        geom_smooth(method = "lm")
+       print(p)
+    }
+  }
+}
+```
+
+## Correlation analysis
+
+9.	Conduct a correlation analysis of the “Data” variables – exclude the calculated variables
+
+The DATA variables are highly correlated.
+
+```{r}
+getCor(AAERDATA2A[,15:33], val = 0.90)
+```
+
+## PCA - Numeric data
+
+10.	Generate Principal components based on the numeric data – both DATA and calculated
+
+```{r, warning=FALSE}
+AAERDATAS <- data.frame(lapply(AAERDATA2.Z, function(x) scale(x, center = FALSE, scale = TRUE)))
+pca <- principal(AAERDATAS,
+                  nfactors=ncol(AAERDATAS),
+                  rotate="none",
+                  scores=TRUE)
+
+pca
+```
+
+## PCA components
+
+11.	How many Principal components should you use?
+
+### PCA Results: Eingenvalues and Proportion
+
+From the Eingenvalues and proportion of variance table, 13 components have eingenvalues greater than 1. 
+
+```{r}
+pca$values
+
+pca$loadings
+```
+
+### PCA Results: Scree plot
+
+Based on scree plot, do not extract more than 13
+
+```{r}
+plot(pca$values, type="b",
+     main="Scree Plot for AAERDATA Data")
+```
+
+### PCA Results: Communality Criterion
+
+Based on communality criterion, extract 13 component if we want to explain at least 85% of the variablity.
+
+```{r}
+comm1 <-(loadings(pca)[1,1])^2
+comm2 <-comm1+(loadings(pca)[1,2])^2
+comm3 <-comm2+(loadings(pca)[1,3])^2
+comm4 <-comm3+(loadings(pca)[1,4])^2
+comm5 <-comm4+(loadings(pca)[1,5])^2
+comm6 <-comm5+(loadings(pca)[1,6])^2
+comm7 <-comm6+(loadings(pca)[1,7])^2
+comm8 <-comm7+(loadings(pca)[1,8])^2
+comm9 <-comm8+(loadings(pca)[1,9])^2
+comm10 <-comm9+(loadings(pca)[1,10])^2
+comm11 <-comm10+(loadings(pca)[1,11])^2
+comm12 <-comm11+(loadings(pca)[1,12])^2
+comm13 <-comm12+(loadings(pca)[1,13])^2
+comm14 <-comm13+(loadings(pca)[1,14])^2
+
+comm10
+comm11
+comm12
+comm13
+comm14
+```
+
+
+## PCA Factor Scores
+
+12.	Plot the factor scores for the number of principal components you identified in #11
+
+
+## PCA varimax rotation
+
+13.	Apply PCA with varimax rotation for the number of principal components in #10
+
+The number of principal components identified in step #10 is 12.
+
+### Extract 12
+
+```{r, warning=FALSE}
+#Varimax rotation
+pca.varimax <- principal(AAERDATAS,
+                         nfactors=12,
+                         rotate="varimax",
+                         scores=TRUE)
+pca.varimax
+```
+
+```{r}
+pca_df <- data.frame(AAERDATA1$bktype)
+colnames(pca_df) <- c("bktype")
+pca_df$bktype <- as.numeric(pca_df$bktype)
+pca_df$PC1 <- pca.varimax$scores[,1]
+pca_df$PC2 <- pca.varimax$scores[,2]
+pca_df$PC3 <- pca.varimax$scores[,3]
+pca_df$PC4 <- pca.varimax$scores[,4]
+pca_df$PC5 <- pca.varimax$scores[,5]
+pca_df$PC6 <- pca.varimax$scores[,6]
+pca_df$PC7 <- pca.varimax$scores[,7]
+pca_df$PC8 <- pca.varimax$scores[,8]
+pca_df$PC9 <- pca.varimax$scores[,9]
+pca_df$PC10 <- pca.varimax$scores[,10]
+pca_df$PC11 <- pca.varimax$scores[,11]
+pca_df$PC12 <- pca.varimax$scores[,12]
+
+pca_glm_12 <- glm(bktype~., data=pca_df)
+
+vif(pca_glm_12)
+
+summary(pca_glm_12)
+```
+
+The AIC is `r AIC(pca_glm_12)`.
+
+- PC1 is highly correlated
+
+- PC2 to PC12 are moderately correlated
+
+### Extract 13
+
+```{r, warning=FALSE}
+#Varimax rotation
+pca.varimax <- principal(AAERDATAS,
+                         nfactors=13,
+                         rotate="varimax",
+                         scores=TRUE)
+pca.varimax
+```
+
+```{r}
+pca_df <- data.frame(AAERDATA1$bktype)
+colnames(pca_df) <- c("bktype")
+pca_df$bktype <- as.numeric(pca_df$bktype)
+pca_df$PC1 <- pca.varimax$scores[,1]
+pca_df$PC2 <- pca.varimax$scores[,2]
+pca_df$PC3 <- pca.varimax$scores[,3]
+pca_df$PC4 <- pca.varimax$scores[,4]
+pca_df$PC5 <- pca.varimax$scores[,5]
+pca_df$PC6 <- pca.varimax$scores[,6]
+pca_df$PC7 <- pca.varimax$scores[,7]
+pca_df$PC8 <- pca.varimax$scores[,8]
+pca_df$PC9 <- pca.varimax$scores[,9]
+pca_df$PC10 <- pca.varimax$scores[,10]
+pca_df$PC11 <- pca.varimax$scores[,11]
+pca_df$PC12 <- pca.varimax$scores[,12]
+pca_df$PC13 <- pca.varimax$scores[,13]
+
+pca_glm_13 <- glm(bktype~., data=pca_df)
+
+vif(pca_glm_13)
+
+summary(pca_glm_13)
+```
+
+- PC1 is highly correlated
+
+- PC2 to PC13 are moderately correlated
+
+The AIC is `r AIC(pca_glm_13)`.  The AIC increased.  Extracting 12 components is better since it has the lowerst AIC.
+
+|Component|AIC|Note|
+|------:|------:|------:|
+|12|`r AIC(pca_glm_12)`|Lowest|
+|13|`r AIC(pca_glm_13)`| |
+
+## PCA - Data data only
+
+14.	Examine the difference in PCA results if you use only the Data variables versus using the constructed (calculated variables).
+
+```{r, warning=FALSE}
+pca1 <- principal(AAERDATAS[,1:34],
+                  nfactors=ncol(AAERDATAS[,1:34]),
+                  rotate="none",
+                  scores=TRUE)
+
+pca1
+```
+
+From the Eingenvalues and proportion of variance table, 8 components have eingenvalues greater than 1. 
+
+```{r}
+pca1$values
+
+pca1$loadings
+```
+
+Based on scree plot, do not extract more than 8
+
+```{r}
+plot(pca1$values, type="b",
+     main="Scree Plot for AAERDATA Data - Data Variables")
+```
+
+### PCA Results: Communality Criterion
+
+Based on communality criterion, extract 8 component if we want to explain at least 88% of the variablity.
+
+```{r}
+comm1 <-(loadings(pca1)[1,1])^2
+comm2 <-comm1+(loadings(pca1)[1,2])^2
+comm3 <-comm2+(loadings(pca1)[1,3])^2
+comm4 <-comm3+(loadings(pca1)[1,4])^2
+comm5 <-comm4+(loadings(pca1)[1,5])^2
+comm6 <-comm5+(loadings(pca1)[1,6])^2
+comm7 <-comm6+(loadings(pca1)[1,7])^2
+comm8 <-comm7+(loadings(pca1)[1,8])^2
+comm9 <-comm8+(loadings(pca1)[1,9])^2
+
+
+comm6
+comm7
+comm8
+comm9
+```
+
+### Extract 6
+
+```{r, warning=FALSE}
+#Varimax rotation
+pca.varimax1 <- principal(AAERDATAS[,1:34],
+                              nfactors=6,
+                              rotate="varimax",
+                              scores=TRUE)
+pca.varimax1
+```
+
+```{r}
+pca_df <- data.frame(AAERDATA1$bktype)
+colnames(pca_df) <- c("bktype")
+pca_df$bktype <- as.numeric(pca_df$bktype)
+pca_df$PC1 <- pca.varimax1$scores[,1]
+pca_df$PC2 <- pca.varimax1$scores[,2]
+pca_df$PC3 <- pca.varimax1$scores[,3]
+pca_df$PC4 <- pca.varimax1$scores[,4]
+pca_df$PC5 <- pca.varimax1$scores[,5]
+pca_df$PC6 <- pca.varimax1$scores[,6]
+
+pca_glm1_6 <- glm(bktype~., data=pca_df)
+
+vif(pca_glm1_6)
+
+summary(pca_glm1_6)
+```
+
+The AIC is `r AIC(pca_glm1_6)`.
+
+### Extract 7
+
+```{r, warning=FALSE}
+#Varimax rotation
+pca.varimax1 <- principal(AAERDATAS[,1:34],
+                              nfactors=7,
+                              rotate="varimax",
+                              scores=TRUE)
+pca.varimax1
+```
+
+```{r}
+pca_df <- data.frame(AAERDATA1$bktype)
+colnames(pca_df) <- c("bktype")
+pca_df$bktype <- as.numeric(pca_df$bktype)
+pca_df$PC1 <- pca.varimax1$scores[,1]
+pca_df$PC2 <- pca.varimax1$scores[,2]
+pca_df$PC3 <- pca.varimax1$scores[,3]
+pca_df$PC4 <- pca.varimax1$scores[,4]
+pca_df$PC5 <- pca.varimax1$scores[,5]
+pca_df$PC6 <- pca.varimax1$scores[,6]
+pca_df$PC7 <- pca.varimax1$scores[,7]
+
+
+pca_glm1_7 <- glm(bktype~., data=pca_df)
+
+vif(pca_glm1_7)
+
+summary(pca_glm1_7)
+```
+
+The AIC is `r AIC(pca_glm1_7)`.
+
+### Extract 8
+
+```{r, warning=FALSE}
+#Varimax rotation
+pca.varimax1 <- principal(AAERDATAS[,1:34],
+                              nfactors=8,
+                              rotate="varimax",
+                              scores=TRUE)
+pca.varimax1
+```
+
+```{r}
+pca_df <- data.frame(AAERDATA1$bktype)
+colnames(pca_df) <- c("bktype")
+pca_df$bktype <- as.numeric(pca_df$bktype)
+pca_df$PC1 <- pca.varimax1$scores[,1]
+pca_df$PC2 <- pca.varimax1$scores[,2]
+pca_df$PC3 <- pca.varimax1$scores[,3]
+pca_df$PC4 <- pca.varimax1$scores[,4]
+pca_df$PC5 <- pca.varimax1$scores[,5]
+pca_df$PC6 <- pca.varimax1$scores[,6]
+pca_df$PC7 <- pca.varimax1$scores[,7]
+pca_df$PC8 <- pca.varimax1$scores[,8]
+
+pca_glm1_8 <- glm(bktype~., data=pca_df)
+
+vif(pca_glm1_8)
+
+summary(pca_glm1_8)
+```
+
+The AIC is `r AIC(pca_glm1_8)`.
+
+Extracting 6 components is better since it has the lowerst AIC.
+
+|Component|AIC|Note|
+|------:|------:|------:|
+|6|`r AIC(pca_glm1_6)`|Lowest|
+|7|`r AIC(pca_glm1_7)`||
+|8|`r AIC(pca_glm1_8)`||
+
+## PCA - Calculated data only
+
+```{r, warning=FALSE}
+pca2 <- principal(AAERDATAS[,35:61],
+                  nfactors=ncol(AAERDATAS[,35:61]),
+                  rotate="none",
+                  scores=TRUE)
+
+pca2
+```
+
+From the Eingenvalues and proportion of variance table, 6 components have eingenvalues greater than 1. 
+
+From the proportion of variance table, 7 components have eingenvalues greater than 1. 
+
+```{r}
+pca2$values
+
+pca2$loadings
+```
+
+Based on scree plot, do not extract more than 7
+
+```{r}
+plot(pca2$values, type="b",
+     main="Scree Plot for AAERDATA Data - Calculated Variables")
+```
+
+### PCA Results: Communality Criterion
+
+Based on communality criterion, extract 7 component if we want to explain at least 87% of the variablity.
+
+```{r}
+comm1 <-(loadings(pca1)[1,1])^2
+comm2 <-comm1+(loadings(pca1)[1,2])^2
+comm3 <-comm2+(loadings(pca1)[1,3])^2
+comm4 <-comm3+(loadings(pca1)[1,4])^2
+comm5 <-comm4+(loadings(pca1)[1,5])^2
+comm6 <-comm5+(loadings(pca1)[1,6])^2
+comm7 <-comm6+(loadings(pca1)[1,7])^2
+comm8 <-comm7+(loadings(pca1)[1,8])^2
+
+comm5
+comm6
+comm7
+comm8
+```
+
+### Extract 5
+
+```{r, warning=FALSE}
+#Varimax rotation
+pca.varimax2 <- principal(AAERDATAS[,35:61],
+                              nfactors=5,
+                              rotate="varimax",
+                              scores=TRUE)
+pca.varimax2
+```
+
+```{r}
+pca_df <- data.frame(AAERDATA1$bktype)
+colnames(pca_df) <- c("bktype")
+pca_df$bktype <- as.numeric(pca_df$bktype)
+pca_df$PC1 <- pca.varimax2$scores[,1]
+pca_df$PC2 <- pca.varimax2$scores[,2]
+pca_df$PC3 <- pca.varimax2$scores[,3]
+pca_df$PC4 <- pca.varimax2$scores[,4]
+pca_df$PC5 <- pca.varimax2$scores[,5]
+
+pca_glm2_5 <- glm(bktype~., data=pca_df)
+
+vif(pca_glm2_5)
+
+summary(pca_glm2_5)
+```
+
+The AIC is `r AIC(pca_glm2_5)`.
+
+### Extract 6
+
+```{r, warning=FALSE}
+#Varimax rotation
+pca.varimax2 <- principal(AAERDATAS[,35:61],
+                              nfactors=6,
+                              rotate="varimax",
+                              scores=TRUE)
+pca.varimax2
+```
+
+```{r}
+pca_df <- data.frame(AAERDATA1$bktype)
+colnames(pca_df) <- c("bktype")
+pca_df$bktype <- as.numeric(pca_df$bktype)
+pca_df$PC1 <- pca.varimax2$scores[,1]
+pca_df$PC2 <- pca.varimax2$scores[,2]
+pca_df$PC3 <- pca.varimax2$scores[,3]
+pca_df$PC4 <- pca.varimax2$scores[,4]
+pca_df$PC5 <- pca.varimax2$scores[,5]
+pca_df$PC6 <- pca.varimax2$scores[,6]
+
+
+pca_glm2_6 <- glm(bktype~., data=pca_df)
+
+vif(pca_glm2_6)
+
+summary(pca_glm2_6)
+```
+
+The AIC is `r AIC(pca_glm2_6)`.
+
+### Extract 7
+
+```{r, warning=FALSE}
+#Varimax rotation
+pca.varimax2 <- principal(AAERDATAS[,35:61],
+                              nfactors=7,
+                              rotate="varimax",
+                              scores=TRUE)
+pca.varimax2
+```
+
+```{r}
+pca_df <- data.frame(AAERDATA1$bktype)
+colnames(pca_df) <- c("bktype")
+pca_df$bktype <- as.numeric(pca_df$bktype)
+pca_df$PC1 <- pca.varimax2$scores[,1]
+pca_df$PC2 <- pca.varimax2$scores[,2]
+pca_df$PC3 <- pca.varimax2$scores[,3]
+pca_df$PC4 <- pca.varimax2$scores[,4]
+pca_df$PC5 <- pca.varimax2$scores[,5]
+pca_df$PC6 <- pca.varimax2$scores[,6]
+pca_df$PC7 <- pca.varimax2$scores[,7]
+
+
+pca_glm2_7 <- glm(bktype~., data=pca_df)
+
+vif(pca_glm2_7)
+
+summary(pca_glm2_7)
+```
+
+The AIC is `r AIC(pca_glm2_7)`.
+
+### Extract 8
+
+```{r, warning=FALSE}
+#Varimax rotation
+pca.varimax2 <- principal(AAERDATAS[,35:61],
+                              nfactors=8,
+                              rotate="varimax",
+                              scores=TRUE)
+pca.varimax2
+```
+
+```{r}
+pca_df <- data.frame(AAERDATA1$bktype)
+colnames(pca_df) <- c("bktype")
+pca_df$bktype <- as.numeric(pca_df$bktype)
+pca_df$PC1 <- pca.varimax2$scores[,1]
+pca_df$PC2 <- pca.varimax2$scores[,2]
+pca_df$PC3 <- pca.varimax2$scores[,3]
+pca_df$PC4 <- pca.varimax2$scores[,4]
+pca_df$PC5 <- pca.varimax2$scores[,5]
+pca_df$PC6 <- pca.varimax2$scores[,6]
+pca_df$PC7 <- pca.varimax2$scores[,7]
+pca_df$PC8 <- pca.varimax2$scores[,8]
+
+
+pca_glm2_8 <- glm(bktype~., data=pca_df)
+
+vif(pca_glm2_8)
+
+summary(pca_glm2_8)
+```
+
+The AIC is `r AIC(pca_glm2_8)`.
+
+Extracting 6 components is better since it has the lowerst AIC.
+
+|Component|AIC|Note|
+|------:|------:|------:|
+|5|`r AIC(pca_glm2_5)`| |
+|6|`r AIC(pca_glm2_6)`|Lowest|
+|7|`r AIC(pca_glm2_7)`| |
+|8|`r AIC(pca_glm2_8)`| |
+

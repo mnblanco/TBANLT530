@@ -1,0 +1,1513 @@
+---
+title: "Chapter 4 Homework"
+author: "Marjorie Blanco"
+date: "December 28, 2017"
+output:
+  html_document:
+    number_sections: yes
+    toc: yes
+    toc_float: yes
+  word_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(psych)
+library(corrplot)
+library(kableExtra)
+library(knitr)
+library(car)
+library(ggplot2)
+```
+
+# Chapter 3: EDA
+
+## Problem 10
+
+Explanatory variables that do not show any relationship should not be ommited from the modeling stage unless they are not significant. Typically we want to only remove explanatory variables from the model if they are not statistically significant.  An explanatory variable that was not significant can become significant when combined with other explanatory variable(s).  
+
+## Problem 11
+
+Scatter plot helps identify the form or shape of a relationship between variables.  Relationships can be linear or curvilinear.  Multivariate graphics such as scatter plot can help uncover new interactioneffects which univariate exploration missed.
+
+## Problem 12
+
+This data set consist of records for 100 students enrolled in a school district. Each record contains the grade (1st to 12th) and level (Elementary, Middle, High School). EDA was used to find the anomaly in this data set. Students enrolled in 6th, 7th and 8th were not recorded as attending middle school.
+
+```{r c3_12_1, echo=FALSE}
+dat <- data.frame(sample(1:12, 100, replace = TRUE))
+colnames(dat) <-  c("grade")
+dat$level <- "high"
+dat$level[dat$grade < 10] <- "elementary"
+```
+
+```{r c3_12_2}
+ggplot(data = dat, aes(factor(grade))) +
+  geom_bar() +
+  labs(x="Grade", y="Count") 
+
+ggplot(data = dat, aes(factor(level))) +
+  geom_bar() +
+  labs(x="Level", y="Count") 
+
+ggplot(data = dat, aes(factor(grade), fill=level)) +
+  geom_bar() +
+  labs(x="Grade", y="Count") 
+```
+
+## Problem 13
+
+Binning is the process of transforming numerical variables into categorical. Numerical variables are usually discretized in the modeling methods based on frequency tables. One of the objective of binning is to improve accuracy of the predictive models by reducing the noise or non-linearity. Another goal is help identify  outliers, invalid and missing values of numerical variables
+
+There are various methods:
+
+- Equal width binning:  divides the data into k intervals of equal size
+
+- Equal frequency binning: divides the data into k groups which each group contains approximately same number of values
+
+- Binning by clustering: uses a clustering algorithm, such as k-means clustering, to automatically calculate the “optimal” partitioning
+
+- Binning based on predictive value: based on the effect each partition has on the value of the target variable
+
+## Problem 14
+
+There are a number of data binning methods.  The best choice will depend on what makes more sense. The number of bins and width can change the shape of the histogram.  It is recomended to experiment until the shape reflects the true nature of the data.
+
+## Problem 15
+
+First need to standardize before deriving of a new numerical variable.  The following are additional steps that should be performed before deriving a new numerical variable representing the mean of two other numberical variables:
+
+- Determine if variables have similar coding shemes
+
+- Determine if the are any missing values
+
+## Problem 16
+
+Two variables x and y are linearly correlated if an increase in x is associated with either an increase in y or a decrease in y.  Correlation measures the strength (prefect relation to no relation) and direction (positive, negative) of the relationship between two variables. Multicollinearity describes the situation when two or more explanatory variables are highly correlated.
+
+## Problem 17
+
+The following is a list of consequences when correlated variables remain in the model:
+
+- The estimated regression coefficient of any one variable depends on other explanatory variables are included in the model.
+
+- The precision of the estimated regression coefficients decreases as more explanatory variables are included in the model.
+
+- The marginal contribution of any one explanatory variable in reducing the error sum of squares (SSR) varies depending on which other variables are included in the model.
+
+- The hypothesis tests for βk = 0 may yield different conclusions depending on which explanatory variables are included in the model.
+
+Multicollinearity has consequences when included in the regression model.  Multicollinearity results in inflated estimates of variance for the regression coefficients and a loss of precision of predictions. 
+
+## Problem 18
+
+If two variables are correlated, it does not mean that one should be omit.
+
+- Perfectly correlated explanatory variables should be removed.  For example, if the data set contains the picket price and ticket price in cents, then it would be appropriate to omit one.
+
+PriceCents = 100 × PriceTicket
+
+- Highly (not perfectly) correlated explanatory variables should be analyzed.  
+
+
+## Problem 19
+
+1. Identify any variables that are perfectly correlated. Do not retain both variables in the model, but rather omit one.
+
+2. Identify groups of variables that are correlated with each other. During the modeling phase, apply dimension-reduction methods, such as principal components analysis, to both variables.
+
+- Analyze explanatory variables to excluding redundancy to reduce potential for multicollinearity
+
+- Perform exploratory analysis such as scatterplots, correlations, VIF
+
+- Perform Principal Components Analysis (PCA)
+
+
+## Problem 20
+
+```{r c3_20, echo=FALSE}
+text_tbl <- data.frame(
+  Method = c("Bar charts","Histograms","Summary statistics", "Cross tabulation", "Correlation analysis","Scatter plots", "Web graphs", "Binning"),
+  Categorical = c("Yes","","","Yes","","","Yes",""),
+  Continous = c("","Yes","Yes","","Yes","Yes","","Yes"),
+  Both = c("","","","","","","","")
+  )
+
+kable(text_tbl, "html") %>%
+kable_styling(full_width = T) %>%
+column_spec(1, bold = T, border_right = T) %>%
+column_spec(2, width = "15em") %>%
+column_spec(3, width = "15em")
+
+```
+
+## Problem 21 
+
+Read *churn* data set
+
+```{r c3_21}
+churn <- read.csv("churn.txt", stringsAsFactors = FALSE)
+```
+
+### length and churn
+
+The data indicate that there is no obvious association between account length and churn 
+
+```{r}
+
+hist(churn$Account.Length)
+hist(churn$Account.Length, freq=FALSE)
+
+ggplot(churn ,aes(Account.Length, fill=Churn)) +
+  geom_histogram() +
+  labs(x="Account Length", y="Count") +
+  ggtitle("Histogram of Account Length")
+
+ggplot(churn ,aes(Account.Length, fill=Churn)) +
+  geom_bar(binwidth = 20,position="fill", stat="count") +
+  labs(x="Account Length", y="Percent") +
+  ggtitle("Barplot of Account Length")
+```
+
+### area code and churn
+
+The data indicate that there is no obvious association between area code and churn 
+
+```{r}
+hist(churn$Area.Code)
+hist(churn$Area.Code, freq=FALSE)
+
+ggplot(churn ,aes(Area.Code, fill=Churn)) +
+  geom_histogram() +
+  labs(x="Area Code", y="Count") +
+  ggtitle("Histogram of Area Code")
+
+ggplot(churn ,aes(Area.Code, fill=Churn)) +
+  geom_bar(position="fill", stat="count") +
+  labs(x="Area Code", y="Percent") +
+  ggtitle("Barplot of Area Code")
+```
+
+### voice mail messages and churn
+
+The data shows that users that have higher number of voice mail messages tend to churn
+
+```{r}
+hist(churn$VMail.Message)
+hist(churn$VMail.Message, freq=FALSE)
+
+ggplot(churn ,aes(VMail.Message, fill=Churn)) +
+  geom_histogram() +
+  labs(x="VMail Message", y="Count") +
+  ggtitle("Histogram of VMail Message")
+
+ggplot(churn ,aes(VMail.Message, fill=Churn)) +
+  geom_bar(position="fill", stat="count") +
+  labs(x="VMail Message", y="Percent") +
+  ggtitle("Barplot of VMail Message")
+```
+
+### day calls and churn
+
+The data indicate that there is no obvious association between day calls and churn 
+
+```{r}
+hist(churn$Day.Calls)
+hist(churn$Day.Calls, freq=FALSE)
+
+ggplot(churn ,aes(Day.Calls, fill=Churn)) +
+  geom_histogram() +
+  labs(x="Day Calls", y="Count") +
+  ggtitle("Histogram of Day Calls")
+
+ggplot(churn ,aes(Day.Calls, fill=Churn)) +
+  geom_bar(binwidth =20, position="fill", stat="count") +
+  labs(x="Day Calls", y="Percent") +
+  ggtitle("Barplot of Day Calls")
+```
+
+### evening calls and churn
+
+The data indicate that there is no obvious association between evening calls and churn 
+
+```{r}
+hist(churn$Eve.Calls)
+hist(churn$Eve.Calls, freq=FALSE)
+
+ggplot(churn ,aes(Eve.Calls, fill=Churn)) +
+  geom_histogram() +
+  labs(x="Eve.Calls", y="Count") +
+  ggtitle("Histogram of Eve.Calls")
+
+ggplot(churn ,aes(Eve.Calls, fill=Churn)) +
+  geom_bar(binwidth =20, position="fill", stat="count") +
+  labs(x="Eve Calls", y="Percent") +
+  ggtitle("Barplot of Eve Calls")
+```
+
+### night calls and churn
+
+The data indicate that there is no obvious association between night calls and churn 
+
+```{r}
+hist(churn$Night.Calls)
+hist(churn$Night.Calls, freq=FALSE)
+
+ggplot(churn ,aes(Night.Calls, fill=Churn)) +
+  geom_histogram() +
+  labs(x="Night Calls", y="Count") +
+  ggtitle("Histogram of Night Calls")
+
+ggplot(churn ,aes(Night.Calls, fill=Churn)) +
+  geom_bar(binwidth =20, position="fill", stat="count") +
+  labs(x="Night Calls", y="Percent") +
+  ggtitle("Barplot of Night Calls")
+```
+
+### day charge and churn
+
+The data indicate that high day charge tend to churn 
+
+```{r}
+hist(churn$Day.Charge)
+hist(churn$Day.Charge, freq=FALSE)
+
+ggplot(churn ,aes(Day.Charge, fill=Churn)) +
+  geom_histogram() +
+  labs(x="Day Charge", y="Count") +
+  ggtitle("Histogram of Day Charge")
+
+ggplot(churn ,aes(Day.Charge, fill=Churn)) +
+  geom_bar(binwidth =20, position="fill", stat="count") +
+  labs(x="Day Charge", y="Percent") +
+  ggtitle("Barplot of Day Charge")
+```
+
+### evening charge and churn
+
+The data indicate that high evening charge tend to churn 
+
+```{r}
+hist(churn$Eve.Charge)
+hist(churn$Eve.Charge, freq=FALSE)
+
+ggplot(churn ,aes(Eve.Charge, fill=Churn)) +
+  geom_histogram() +
+  labs(x="Eve Charge", y="Count") +
+  ggtitle("Histogram of Eve Charge")
+
+ggplot(churn ,aes(Eve.Charge, fill=Churn)) +
+  geom_bar(binwidth =20, position="fill", stat="count") +
+  labs(x="Eve Charge", y="Percent") +
+  ggtitle("Barplot of Eve Charge")
+```
+
+### night charge and churn
+
+The data indicate that there is no obvious association between night charge and churn 
+
+```{r}
+hist(churn$Night.Charge)
+hist(churn$Night.Charge, freq=FALSE)
+
+ggplot(churn ,aes(Night.Charge, fill=Churn)) +
+  geom_histogram() +
+  labs(x="Night Charge", y="Count") +
+  ggtitle("Histogram of Night Charge")
+
+ggplot(churn ,aes(Night.Charge, fill=Churn)) +
+  geom_bar(binwidth =20, position="fill", stat="count") +
+  labs(x="Night Charge", y="Percent") +
+  ggtitle("Barplot of Night Charge")
+```
+
+### international charge and churn
+
+The data indicate that there is no obvious association between international charge and churn
+
+```{r}
+hist(churn$Intl.Charge)
+hist(churn$Intl.Charge, freq=FALSE)
+
+ggplot(churn ,aes(Intl.Charge, fill=Churn)) +
+  geom_histogram() +
+  labs(x="Intl Charge", y="Count") +
+  ggtitle("Histogram of Intl Charge")
+
+ggplot(churn ,aes(Intl.Charge, fill=Churn)) +
+  geom_bar(binwidth =20, position="fill", stat="count") +
+  labs(x="Intl Charge", y="Percent") +
+  ggtitle("Barplot of Intl Charge")
+```
+
+### international minutes and churn
+
+The data indicate that there is no obvious association between international minutes and churn
+
+```{r}
+hist(churn$Intl.Mins)
+hist(churn$Intl.Mins, freq=FALSE)
+
+ggplot(churn ,aes(Intl.Mins, fill=Churn)) +
+  geom_histogram() +
+  labs(x="Intl Mins", y="Count") +
+  ggtitle("Histogram of Intl Mins")
+
+ggplot(churn ,aes(Intl.Mins, fill=Churn)) +
+  geom_bar(binwidth =20, position="fill", stat="count") +
+  labs(x="Intl Mins", y="Percent") +
+  ggtitle("Barplot of Intl Mins")
+```
+
+```{r, echo=FALSE}
+churn.false <- filter(churn, Churn == "False" )
+churn.true <- filter(churn, Churn == "True" )
+```
+
+This variable is not useful for predicting churn
+```{r}
+t.test(churn.false$Account.Length, churn.true$Account.Length)
+```
+This variable is not useful for predicting churn
+```{r}
+t.test(churn.false$Area.Code, churn.true$Area.Code)
+```
+This variable is useful for predicting churn
+```{r}
+t.test(churn.false$VMail.Message, churn.true$VMail.Message)
+```
+This variable is not useful for predicting churn
+```{r}
+t.test(churn.false$Day.Calls, churn.true$Day.Calls)
+```
+This variable is not useful for predicting churn
+```{r}
+t.test(churn.false$Eve.Calls, churn.true$Eve.Calls)
+```
+This variable is not useful for predicting churn
+```{r}
+t.test(churn.false$Night.Calls, churn.true$Night.Calls)
+```
+This variable is useful for predicting churn
+```{r}
+t.test(churn.false$Intl.Calls, churn.true$Intl.Calls)
+```
+This variable is useful for predicting churn
+```{r}
+t.test(churn.false$CustServ.Calls, churn.true$CustServ.Calls)
+```
+This variable is useful for predicting churn
+```{r}
+t.test(churn.false$Day.Mins, churn.true$Day.Mins)
+```
+This variable is useful for predicting churn
+```{r}
+t.test(churn.false$Day.Charge, churn.true$Day.Charge)
+```
+This variable is useful for predicting churn
+```{r}
+t.test(churn.false$Eve.Mins, churn.true$Eve.Mins)
+```
+This variable is useful for predicting churn
+```{r}
+t.test(churn.false$Eve.Charge, churn.true$Eve.Charge)
+```
+This variable is useful for predicting churn
+```{r}
+t.test(churn.false$Night.Mins, churn.true$Night.Mins)
+```
+This variable is useful for predicting churn
+```{r}
+t.test(churn.false$Night.Charge, churn.true$Night.Charge)
+```
+This variable is useful for predicting churn
+```{r}
+t.test(churn.false$Intl.Calls, churn.true$Intl.Calls)
+```
+This variable is useful for predicting churn
+```{r}
+t.test(churn.false$Intl.Charge, churn.true$Intl.Charge)
+```
+
+```{r,echo=FALSE}
+corrdata <- cbind(churn$Account.Length, churn$VMail.Message, churn$Day.Mins, churn$Day.Calls,churn$CustServ.Calls)
+round(cor(corrdata),4)
+
+corrpvalue <- matrix(rep(0,25), ncol = 5)
+
+for (i in 1:4)
+{
+  for (j in (i+1):5)
+  {
+    corrpvalue[i,j] <- corrpvalue[j, i] <- round(cor.test(corrdata[,i], corrdata[,j])$p.value,4)
+  }
+}
+corrpvalue
+```
+
+## Problem 22
+
+Read *adult* data set
+
+The categorical variables are those with type `character`. The continous variables are those with type `integer`
+
+```{r}
+adult <- read.csv("adult.txt", stringsAsFactors = FALSE)
+split(names(adult),sapply(adult, function(x) paste(class(x), collapse=" ")))
+```
+
+## Problem 23
+
+```{r c3_23}
+head(adult, n=10)
+```
+
+## Problem 24
+
+Degree of correlation:
+
+- Perfect: If the value is near ± 1
+
+- High degree (strong correlation): If the coefficient value lies between ± 0.50 and ± 1
+
+- Moderate degree (medium correlation): If the value lies between ± 0.30 and ± 0.49
+
+- Low degree (small correlation): When the value lies below + .29
+
+- No correlation: When the value is zero
+
+```{r c3_24, echo=FALSE}
+cor(adult[,c(1,3,5,11:13)])
+
+#Use the corrplot function to add colors to the matrix
+corrplot(cor(adult[,c(1,3,5,11:13)]),
+        method="number",
+         tl.cex=.65, 
+         col=colorRampPalette(c("blue","grey","red"))(200))
+```
+
+## Problem 25
+
+```{r c3_25, echo=FALSE}
+ggplot() +
+  geom_bar(data = adult, aes(x=factor(adult$workclass),  fill=factor(adult$income))) +
+                      scale_x_discrete("Workclass") +
+                      scale_y_continuous("Count") +
+                      guides(fill=guide_legend(title="Income")) +
+  labs(title = "Bar chart of Workclass") +
+  labs(caption = "(Source: Data Mining and Predictive Analytics)") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+ggplot(data = adult, aes(x=factor(adult$workclass),  fill=factor(adult$income ))) +
+  geom_bar(position="fill") +
+  labs(title = "Bar chart of Workclass") +
+  labs(x="Workclass", y="Count") +
+  labs(caption = "(Source: Data Mining and Predictive Analytics)") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_discrete(guide = guide_legend(title = "Income"))
+
+ggplot() +
+  geom_bar(data = adult, aes(x=factor(adult$education),  fill=factor(adult$income))) +
+                      scale_x_discrete("Education") +
+                      scale_y_continuous("Count") +
+                      guides(fill=guide_legend(title="Income")) +
+  labs(title = "Bar chart of Education") +
+  labs(caption = "(Source: Data Mining and Predictive Analytics)") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+ggplot(data = adult, aes(x=factor(adult$education),  fill=factor(adult$income ))) +
+  geom_bar(position="fill") +
+  labs(title = "Bar chart of Education") +
+  labs(x="Education", y="Count") +
+  labs(caption = "(Source: Data Mining and Predictive Analytics)") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_discrete(guide = guide_legend(title = "Income"))
+
+ggplot() +
+  geom_bar(data = adult, aes(x=factor(adult$marital.status),  fill=factor(adult$income))) +
+                      scale_x_discrete("Marital Status") +
+                      scale_y_continuous("Count") +
+                      guides(fill=guide_legend(title="Income")) +
+  labs(title = "Bar chart of Marital Status") +
+  labs(caption = "(Source: Data Mining and Predictive Analytics)") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+ggplot(data = adult, aes(x=factor(adult$workclass),  fill=factor(adult$income ))) +
+  geom_bar(position="fill") +
+  labs(title = "Bar chart of Marital Status") +
+  labs(x="Marital Status", y="Count") +
+  labs(caption = "(Source: Data Mining and Predictive Analytics)") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_discrete(guide = guide_legend(title = "Income"))
+
+ggplot() +
+  geom_bar(data = adult, aes(x=factor(adult$occupation),  fill=factor(adult$income))) +
+                      scale_x_discrete("Occupation") +
+                      scale_y_continuous("Count") +
+                      guides(fill=guide_legend(title="Income")) +
+  labs(title = "Bar chart of Occupation") +
+  labs(caption = "(Source: Data Mining and Predictive Analytics)") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+ggplot(data = adult, aes(x=factor(adult$occupation),  fill=factor(adult$income ))) +
+  geom_bar(position="fill") +
+  labs(title = "Bar chart of Occupation") +
+  labs(x="Occupation", y="Count") +
+  labs(caption = "(Source: Data Mining and Predictive Analytics)") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_discrete(guide = guide_legend(title = "Income"))
+
+ggplot() +
+  geom_bar(data = adult, aes(x=factor(adult$relationship),  fill=factor(adult$income))) +
+                      scale_x_discrete("Relationship") +
+                      scale_y_continuous("Count") +
+                      guides(fill=guide_legend(title="Income")) +
+  labs(title = "Bar chart of Relationship") +
+  labs(caption = "(Source: Data Mining and Predictive Analytics)") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+ggplot(data = adult, aes(x=factor(adult$relationship),  fill=factor(adult$income ))) +
+  geom_bar(position="fill") +
+  labs(title = "Bar chart of Relationship") +
+  labs(x="Relationship", y="Count") +
+  labs(caption = "(Source: Data Mining and Predictive Analytics)") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_discrete(guide = guide_legend(title = "Income"))
+
+ggplot() +
+  geom_bar(data = adult, aes(x=factor(adult$race),  fill=factor(adult$income))) +
+                      scale_x_discrete("race") +
+                      scale_y_continuous("Count") +
+                      guides(fill=guide_legend(title="Income")) +
+  labs(title = "Bar chart of Race") +
+  labs(caption = "(Source: Data Mining and Predictive Analytics)") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+ggplot(data = adult, aes(x=factor(adult$race),  fill=factor(adult$income ))) +
+  geom_bar(position="fill") +
+  labs(title = "Bar chart of Race") +
+  labs(x="Rac", y="Count") +
+  labs(caption = "(Source: Data Mining and Predictive Analytics)") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_discrete(guide = guide_legend(title = "Income"))
+
+ggplot() +
+  geom_bar(data = adult, aes(x=factor(adult$sex),  fill=factor(adult$income))) +
+                      scale_x_discrete("Sex") +
+                      scale_y_continuous("Count") +
+                      guides(fill=guide_legend(title="Income")) +
+  labs(title = "Bar chart of Sex") +
+  labs(caption = "(Source: Data Mining and Predictive Analytics)") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+ggplot(data = adult, aes(x=factor(adult$sex),  fill=factor(adult$income ))) +
+  geom_bar(position="fill") +
+  labs(title = "Bar chart of Sex") +
+  labs(x="Sex", y="Count") +
+  labs(caption = "(Source: Data Mining and Predictive Analytics)") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_discrete(guide = guide_legend(title = "Income"))
+
+ggplot() +
+  geom_bar(data = adult, aes(x=factor(adult$native.country),  fill=factor(adult$income))) +
+                      scale_x_discrete("native.country") +
+                      scale_y_continuous("Count") +
+                      guides(fill=guide_legend(title="Income")) +
+  labs(title = "Bar chart of Native Country") +
+  labs(caption = "(Source: Data Mining and Predictive Analytics)") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+ggplot(data = adult, aes(x=factor(adult$native.country),  fill=factor(adult$income ))) +
+  geom_bar(position="fill") +
+  labs(title = "Bar chart of Native Country") +
+  labs(x="Native Country", y="Count") +
+  labs(caption = "(Source: Data Mining and Predictive Analytics)") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_fill_discrete(guide = guide_legend(title = "Income"))
+```
+
+## Problem 26
+
+```{r c3_26}
+table(adult$workclass,adult$education)
+table(adult$workclass,adult$marital.status)
+table(adult$workclass,adult$occupation)
+table(adult$workclass,adult$relationship)
+table(adult$workclass,adult$race)
+table(adult$workclass,adult$sex)
+table(adult$workclass,adult$native.country)
+table(adult$workclass,adult$income)
+table(adult$education,adult$marital.status)
+table(adult$education,adult$occupation)
+table(adult$education,adult$relationship)
+table(adult$education,adult$race)
+table(adult$education,adult$sex)
+table(adult$education,adult$native.country)
+table(adult$education,adult$income)
+table(adult$marital.status,adult$occupation)
+table(adult$marital.status,adult$relationship)
+table(adult$marital.status,adult$race)
+table(adult$marital.status,adult$sex)
+table(adult$marital.status,adult$native.country)
+table(adult$marital.status,adult$income)
+table(adult$occupation,adult$relationship)
+table(adult$occupation,adult$race)
+table(adult$occupation,adult$sex)
+table(adult$occupation,adult$native.country)
+table(adult$occupation,adult$income)
+table(adult$relationship,adult$race)
+table(adult$relationship,adult$sex)
+table(adult$relationship,adult$native.country)
+table(adult$relationship,adult$income)
+table(adult$race,adult$sex)
+table(adult$race,adult$native.country)
+table(adult$race,adult$income)
+table(adult$sex,adult$native.country)
+table(adult$sex,adult$income)
+table(adult$native.country,adult$income)
+```
+
+## Problem 27
+
+
+## Problem 28
+
+- Those that reported never working or no income are marked as having income of less than $50K
+
+- Those that reported only completing preschool are marked as haviing income of less than $50K
+
+## Problem 29
+
+```{r}
+describe(adult[,c(1,3,5,11:13)])
+```
+
+## Problem 30
+
+```{r, echo=FALSE}
+income.low <- filter(adult, income == "<=50K." )
+income.high <- filter(adult, income == ">50K." )
+```
+
+Age variable is useful for predicting high income
+
+```{r}
+t.test(income.low$age, income.high$age)
+```
+
+Weight variable is not useful for predicting high income
+
+```{r}
+t.test(income.low$demogweight, income.high$demogweight)
+```
+
+Education is useful for predicting high income
+
+```{r}
+t.test(income.low$education.num, income.high$education.num)
+```
+
+Capital gain variable is  useful for predicting high income
+
+```{r}
+t.test(income.low$capital.gain, income.high$capital.gain)
+```
+
+Capital loss variable is useful for predicting high income
+
+```{r}
+t.test(income.low$capital.loss, income.high$capital.loss)
+```
+
+Hours per week variable is  useful for predicting high income
+
+```{r}
+t.test(income.low$hours.per.week, income.high$hours.per.week)
+```
+
+```{r}
+adult$age_s <- scale(adult$age, center = TRUE, scale = TRUE)
+adult$demogweight_s <- scale(adult$demogweight, center = TRUE, scale = TRUE)
+adult$education.num_s <- scale(adult$education.num, center = TRUE, scale = TRUE)
+adult$capital.gain_s <- scale(adult$capital.gain, center = TRUE, scale = TRUE)
+adult$capital.loss_s <- scale(adult$capital.loss, center = TRUE, scale = TRUE)
+adult$hours.per.week_s <- scale(adult$hours.per.week, center = TRUE, scale = TRUE)
+```
+
+Age variable is useful for predicting high income
+
+```{r c3_30_1, echo=FALSE}
+ggplot() +
+  geom_histogram(data = adult, aes(x=factor(adult$age_s),  fill=factor(adult$income)),stat="count") +
+                      scale_x_discrete("Age") +
+                      scale_y_continuous("Count") +
+                      guides(fill=guide_legend(title="Income")) +
+  labs(title = "Histogram chart of Age") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x=element_blank()) +
+  labs(x="Age", y="Count") 
+
+ggplot(data = adult, aes(x=factor(adult$age_s),  fill=factor(adult$income ))) +
+  geom_histogram(position="fill",stat="count") +
+  labs(title = "Histogram chart of Age") +
+  labs(x="Age", y="Percent") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x=element_blank()) +
+  scale_fill_discrete(guide = guide_legend(title = "Income"))
+```
+
+```{r c3_30_2, echo=FALSE}
+ggplot() +
+  geom_histogram(data = adult, aes(x=factor(adult$demogweight_s),  fill=factor(adult$income)),stat="count") +
+                      scale_x_discrete("Weight") +
+                      scale_y_continuous("Count") +
+                      guides(fill=guide_legend(title="Income")) +
+  labs(title = "Histogram chart of Weight") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x=element_blank()) +
+  labs(x="Weight", y="Count") 
+
+ggplot(data = adult, aes(x=factor(adult$demogweight_s),  fill=factor(adult$income ))) +
+  geom_histogram(position="fill",stat="count") +
+  labs(title = "Histogram chart of Weight") +
+  labs(x="Weight", y="Percent") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x=element_blank()) +
+  scale_fill_discrete(guide = guide_legend(title = "Income"))
+```
+
+Education variable is useful for predicting high income
+
+```{r c3_30_3, echo=FALSE}
+ggplot() +
+  geom_histogram(data = adult, aes(x=factor(adult$education.num_s),  fill=factor(adult$income)),stat="count") +
+                      scale_x_discrete("Education") +
+                      scale_y_continuous("Count") +
+                      guides(fill=guide_legend(title="Income")) +
+  labs(title = "Histogram chart of Education") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x=element_blank()) +
+  labs(x="Education", y="Count") 
+
+ggplot(data = adult, aes(x=factor(adult$education.num_s),  fill=factor(adult$income ))) +
+  geom_histogram(position="fill",stat="count") +
+  labs(title = "Histogram chart of Education") +
+  labs(x="Education", y="Percent") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x=element_blank()) +
+  scale_fill_discrete(guide = guide_legend(title = "Income"))
+```
+
+Capital gain variable is useful for predicting high income
+
+```{r c3_30_4, echo=FALSE}
+ggplot() +
+  geom_histogram(data = adult, aes(x=factor(adult$capital.gain_s),  fill=factor(adult$income)),stat="count") +
+                      scale_x_discrete("Capital Gain") +
+                      scale_y_continuous("Count") +
+                      guides(fill=guide_legend(title="Income")) +
+  labs(title = "Histogram chart of Capital Gain") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x=element_blank()) +
+  labs(x="Capital Gain", y="Count") 
+
+ggplot(data = adult, aes(x=factor(adult$capital.gain_s),  fill=factor(adult$income ))) +
+  geom_histogram(position="fill",stat="count") +
+  labs(title = "Histogram chart of Capital Gain") +
+  labs(x="Capital Gain", y="Percent") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x=element_blank()) +
+  scale_fill_discrete(guide = guide_legend(title = "Income"))
+```
+
+Capital loss variable is not useful for predicting high income
+
+```{r c3_30_5, echo=FALSE}
+ggplot() +
+  geom_histogram(data = adult, aes(x=factor(adult$capital.loss_s),  fill=factor(adult$income)),stat="count") +
+                      scale_x_discrete("Capital Loss") +
+                      scale_y_continuous("Count") +
+                      guides(fill=guide_legend(title="Income")) +
+  labs(title = "Histogram chart of Capital Gain") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x=element_blank()) +
+  labs(x="Capital Loss", y="Count") 
+
+ggplot(data = adult, aes(x=factor(adult$capital.loss_s),  fill=factor(adult$income ))) +
+  geom_histogram(position="fill",stat="count") +
+  labs(title = "Histogram chart of Capital Loss") +
+  labs(x="Capital Loss", y="Percent") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x=element_blank()) +
+  scale_fill_discrete(guide = guide_legend(title = "Income"))
+```
+
+Hours per week variable is useful for predicting high income
+ 
+```{r c3_30_6, echo=FALSE}
+ggplot() +
+  geom_histogram(data = adult, aes(x=factor(adult$hours.per.week_s),  fill=factor(adult$income)),stat="count") +
+                      scale_x_discrete("Hours per Week") +
+                      scale_y_continuous("Count") +
+                      guides(fill=guide_legend(title="Income")) +
+  labs(title = "Histogram chart of Hours per Week") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x=element_blank()) +
+  labs(x="Hours per Week", y="Count") 
+
+ggplot(data = adult, aes(x=factor(adult$hours.per.week_s),  fill=factor(adult$income ))) +
+  geom_histogram(position="fill",stat="count") +
+  labs(title = "Histogram chart of Hours per Week") +
+  labs(x="Hours per Week", y="Percent") +
+  theme(axis.text.x = element_blank(),
+        axis.ticks.x=element_blank()) +
+  scale_fill_discrete(guide = guide_legend(title = "Income"))
+```
+
+## Problem 31
+
+```{r}
+pairs(~age+demogweight+education.num+capital.gain+capital.loss+hours.per.week,data = adult)
+
+cor(adult[,c(1,3,5,11:13)])
+
+corrplot(cor(adult[,c(1,3,5,11:13)]),
+        method="number",
+         tl.cex=.65, 
+         number.cex=.7, 
+         col=colorRampPalette(c("blue","grey","red"))(200))
+```
+
+## Problem 32
+
+Based on the EDA, the following are sub-groups of records that would be worth further investigation:
+
+- Capital gain, age, hours per week, education
+
+# Chapter 4: PCA
+
+
+## Problem 10
+
+The KMO is greater than 0.5, which indicaes that factor analysis may be appropriate.  The Barlett's Test of Sphericity p-value is larger than .10; therefore there is insufficient evidence to suggest that the variables are correlated and factor analysis is not suitable.  We are getting mixed signals since the KMO is very close to .5
+
+## Problem 11
+
+The following variables can be omitted: ZINTCALL, ZDAYCALL, ZNITECAL, and ZINTCHAR. These offer the lowest extraction value.
+
+## Problem 12
+
+Based on the eigenvalue criterion, five components should be extracted.  Based on the proportion of variance explained criterion, nine components should be extracted if we try to explain at least 80% of variablity.
+
+## Problem 13
+
+Based on the scree plot criterion, seven components should be extracted.
+
+## Problem 14
+
+The rotated component matrix not provided.
+
+## Problem 15
+
+Read Baseball dataset
+
+```{r}
+baseball <- read.csv("baseball.csv", stringsAsFactors = FALSE)
+baseball <- baseball[,c(3,5:19)]
+baseball <- baseball %>% filter(at_bats >= 100)
+```
+
+### Histogram
+
+```{r}
+hist(baseball$age)
+hist(baseball$games)
+hist(baseball$at_bats)
+hist(baseball$runs)
+hist(baseball$hits)
+hist(baseball$triples)
+hist(baseball$homeruns)
+hist(baseball$RBIs)
+hist(baseball$walks)
+hist(baseball$strikeouts)
+hist(baseball$bat_ave)
+hist(baseball$on_base_pct)
+hist(baseball$slugging_pct)
+hist(baseball$stolen_bases)
+hist(baseball$caught_stealing)
+```
+
+### Scale (Standardize)
+
+```{r}
+baseball$age_s <- scale(baseball$age, center = TRUE, scale = TRUE)
+baseball$games_s <- scale(baseball$games, center = TRUE, scale = TRUE)
+baseball$at_bats_s <- scale(baseball$at_bats, center = TRUE, scale = TRUE)
+baseball$runs_s <- scale(baseball$runs, center = TRUE, scale = TRUE)
+baseball$hits_s <- scale(baseball$hits, center = TRUE, scale = TRUE)
+baseball$doubles_s <- scale(baseball$doubles, center = TRUE, scale = TRUE)
+baseball$triples_s <- scale(baseball$triples, center = TRUE, scale = TRUE)
+baseball$homeruns_s <- scale(baseball$homeruns, center = TRUE, scale = TRUE)
+baseball$RBIs_s <- scale(baseball$RBIs, center = TRUE, scale = TRUE)
+baseball$walks_s <- scale(baseball$walks, center = TRUE, scale = TRUE)
+baseball$strikeouts_s <- scale(baseball$strikeouts, center = TRUE, scale = TRUE)
+baseball$bat_ave_s <- scale(baseball$bat_ave, center = TRUE, scale = TRUE)
+baseball$on_base_pct_s <- scale(baseball$on_base_pct, center = TRUE, scale = TRUE)
+baseball$slugging_pct_s <- scale(baseball$slugging_pct, center = TRUE, scale = TRUE)
+baseball$stolen_bases_s <- scale(baseball$stolen_bases, center = TRUE, scale = TRUE)
+baseball$caught_stealing_s <- scale(baseball$caught_stealing, center = TRUE, scale = TRUE)
+```
+
+### Standardize Histogram 
+
+```{r}
+hist(baseball$age_s)
+hist(baseball$games_s)
+hist(baseball$at_bats_s)
+hist(baseball$runs_s)
+hist(baseball$hits_s)
+hist(baseball$doubles_s)
+hist(baseball$triples_s)
+hist(baseball$homeruns_s)
+hist(baseball$RBIs_s)
+hist(baseball$walks_s)
+hist(baseball$strikeouts_s)
+hist(baseball$bat_ave_s)
+hist(baseball$on_base_pct_s)
+hist(baseball$slugging_pct_s)
+hist(baseball$stolen_bases_s)
+hist(baseball$caught_stealing_s)
+```
+
+## Problem 16
+
+There is sufficient variability  among the predictors to perform PCA.
+
+### Matrix plot of predictor variables
+
+Many of the predictor are nearly perfect to strong correlation.  For example:
+
+- at_bats_s and games_s are near perfect correlation
+
+- hits_s and games_s are near perfect correlation
+
+
+```{r}
+panel.cor <- function(x, y, ...)
+{
+    par(usr = c(0, 1, 0, 1))
+    txt <- as.character(format(cor(x, y), digits=2))
+    text(0.5, 0.5, txt,  cex = 2* abs(cor(x, y)))
+}
+
+pairs(baseball[,c(17:23,25:32)])
+cor(baseball[,c(17:23,25:32)])
+
+corrplot(cor(baseball[,c(17:23,25:32)]),
+        method="number",
+         tl.cex=.65, 
+         number.cex=.5, 
+         col=colorRampPalette(c("blue","grey","red"))(200))
+        
+```
+
+
+```{r,echo=FALSE}
+ #Split data set
+
+#choose <- runif(dim(baseball)[1],0,1)
+#test.baseball <- baseball[which(choose < .1),]
+#train.baseball <- baseball[which(choose >= .1),]
+```
+
+## Problem 17
+
+### PCA
+
+
+```{r}
+baseball.pca <- principal(baseball[,c(17:23,25:32)],
+                  nfactors=15,
+                  rotate="none",
+                  scores=TRUE)
+baseball.pca
+```
+
+### PCA Results: Eingenvalues and Proportion
+
+From the Eingenvalues and proportion of variance table, four components have eingenvalues greater than 1. 
+
+```{r}
+baseball.pca$values
+
+baseball.pca$loadings
+```
+
+### PCA Results: Scree plot
+
+Based on scree plot, do not extract more than 4
+
+```{r}
+plot(baseball.pca$values, type="b",
+     main="Scree Plot for Baseball Data")
+```
+
+### PCA Results: Communality Criterion
+
+Based on communality criterion, extract fourth component.
+
+```{r}
+#Component matrix 
+
+baseball.pca
+
+#Test if age_Z is necessary to keep in the analysis.
+comm1 <-(loadings(baseball.pca)[1,1])^2
+comm2 <-(loadings(baseball.pca)[1,1])^2+(loadings(baseball.pca)[1,2])^2
+comm3 <-(loadings(baseball.pca)[1,1])^2+(loadings(baseball.pca)[1,2])^2+(loadings(baseball.pca)[1,3])^2
+comm4 <-(loadings(baseball.pca)[1,1])^2+(loadings(baseball.pca)[1,2])^2+(loadings(baseball.pca)[1,3])^2+(loadings(baseball.pca)[1,4])^2
+
+comm1
+comm2
+comm3
+comm4
+```
+
+## Problem 18
+
+Based on the information from the analysis above, four components should be extracted.
+
+## Problem 19
+
+Principal component 1  is composed of variables:  games, at_bats, runs, hits, doubles, RBIs, walks, and strikeouts
+
+Principal component 3  is composed of variables: bat_ave, on_base_pct, and slugging_pct
+
+Principal component 2  is composed of variables: triples, stolen_bases, and caught_stealings
+
+Principal component 4  is composed of variables: age
+
+![Component Matrix](profile.PNG)
+
+```{r}
+baseball.varimax <-principal(baseball[,c(17:23,25:32)],
+                             nfactors=4,
+                             rotate="varimax",
+                             scores=TRUE)
+baseball.varimax
+```
+
+## Problem 21: Wine Quality Training - Standardize
+
+```{r}
+wine <- read.table("Wine_Quality_Training_File", header = T, sep='\t')
+
+#Filter to white wines only
+
+white_wine <-  wine %>% filter(type == 'white') 
+
+#Remove quality and type
+white_wine <- white_wine[,c(2:13)]
+
+white_wine$alcohol_z <- scale(white_wine$alcohol , center = TRUE, scale = TRUE)
+white_wine$chlorides_z <- scale(white_wine$chlorides , center = TRUE, scale = TRUE)
+white_wine$citric.acid_z <- scale(white_wine$citric.acid , center = TRUE, scale = TRUE)
+white_wine$density_z <- scale(white_wine$density , center = TRUE, scale = TRUE)
+white_wine$fixed.acidity_z <- scale(white_wine$fixed.acidity , center = TRUE, scale = TRUE)
+white_wine$free.sulfur.dioxide_z <- scale(white_wine$free.sulfur.dioxide , center = TRUE, scale = TRUE)
+white_wine$quality_z <- scale(white_wine$quality , center = TRUE, scale = TRUE)
+white_wine$pH_z <- scale(white_wine$pH , center = TRUE, scale = TRUE)
+white_wine$residual.sugar_z <- scale(white_wine$residual.sugar , center = TRUE, scale = TRUE)
+white_wine$sulphates_z <- scale(white_wine$sulphates , center = TRUE, scale = TRUE)
+white_wine$total.sulfur.dioxide_z <- scale(white_wine$total.sulfur.dioxide , center = TRUE, scale = TRUE)
+white_wine$volatile.acidity_z <- scale(white_wine$volatile.acidity , center = TRUE, scale = TRUE)
+
+```
+
+## Problem 22: Wine Quality Training - Matrix Plot
+
+The following have strong correlation:
+
+- density and residual.sugar (positive)
+
+- total.sulfur.dioxide and free.sulfur.dioxide (positive)
+
+- density and alcohol (negative)
+
+```{r}
+#Use the cor functionto create a correlation matrixwhite
+
+white_wine_cor <-cor(white_wine[,c(13:18,20:24)])
+
+#Use the corrplot function to add colors to the matrix
+corrplot(white_wine_cor,
+         method="number",
+         tl.cex=.65, 
+         col=colorRampPalette(c("blue","grey","red"))(200))
+```
+
+## Problem 23: Wine Quality Training
+
+Before conducting linear regression, predictors should be checked for correlation. When predictor variables are correlated, the estimated regression coefficient of any one variable depends on which other predictor variables are included in the model.
+
+
+When predictor variables are correlated, the precision of the estimated regression coefficients decreases as more predictor variables are added to the model.
+
+```{r}
+lm1 <- lm(data=white_wine, quality_z~density_z)
+lm2 <- lm(data=white_wine, quality_z~residual.sugar_z)
+lm3 <- lm(data=white_wine, quality_z~density_z+residual.sugar_z)
+lm4 <- lm(data=white_wine, quality_z~residual.sugar_z+density_z)
+
+
+lm1
+lm2
+lm3
+lm4
+```
+
+```{r, echo=FALSE}
+text_tbl <- data.frame(
+  Model = c("x2 only","x3 only","x2, x3 (in order)","x3, x2 (in order)"),
+  b2 = c(round(lm1$coefficients[2],2),"N/A",round(lm3$coefficients[2],2),round(lm4$coefficients[2],2)),
+  b3 = c("N/A",round(lm2$coefficients[2],2),round(lm3$coefficients[3],2),round(lm4$coefficients[3],2))
+)
+
+kable(text_tbl, "html") %>%
+kable_styling(full_width = T) %>%
+column_spec(1, bold = T, border_right = T) %>%
+column_spec(2, width = "30em")
+```
+
+## Problem 24: Wine Quality Training
+
+High VIFs are a sign of multicollinearity.  The Variance Inflating Factor (VIF) tells you how much higher the variance are when x1 and x2 are correlated compared to when they are uncorrelated.  The high correlation support the need for PCA.
+
+- alcohol, density and residual.sugar  is highly correlated
+
+- chlorides, acid, acidity, free.sulfur.dioxide, pH, sulphates, total.sulfur.dioxide, and volatile.acidity are moderately correlated
+
+VIF	Status of predictors
+VIF = 1	Not correlated
+1 < VIF < 5	Moderately correlated
+VIF > 5 to 10	Highly correlated
+
+
+```{r}
+white_wine_z <- white_wine[,c(13:24)]
+lm.fit <- lm(data=white_wine_z, quality_z~.)
+summary(lm.fit)
+vif(lm.fit)
+```
+
+## Problem 25: Wine Quality Training - PCA
+
+Principal components analysis is a procedure for identifying a smaller number of uncorrelated variable.
+
+## Problem 26: Wine Quality Training - PCA
+
+From the Eingenvalues table, four components have eingenvalues greater than 1. 
+
+
+```{r}
+wine.pca <- principal(white_wine_z[,c(1:6,8:12)],
+                  nfactors=11,
+                  rotate="none",
+                  scores=TRUE)
+wine.pca
+```
+
+### PCA Results: Eingenvalues
+
+From the Eingenvalues table, four components have eingenvalues greater than 1 (do not throw away 5 and 6). 
+
+```{r}
+wine.pca$values
+```
+
+### PCA Results: Proportion
+
+From the proportion of variance table, four components have eingenvalues greater than 1 with 64% of variabilty is explained.   For six components, 81% of variablilty is explained. 
+
+```{r}
+wine.pca$loadings
+```
+
+### PCA Results: Minimum Communality Criterion
+
+Based on communality criterion, extract fourth component.
+
+```{r}
+loadings(wine.pca)
+
+comm1 <-(loadings(wine.pca)[1,1])^2
+comm2 <-(loadings(wine.pca)[1,1])^2+(loadings(wine.pca)[1,2])^2
+comm3 <-(loadings(wine.pca)[1,1])^2+(loadings(wine.pca)[1,2])^2+(loadings(wine.pca)[1,3])^2
+comm4 <-(loadings(wine.pca)[1,1])^2+(loadings(wine.pca)[1,2])^2+(loadings(wine.pca)[1,3])^2+(loadings(wine.pca)[1,4])^2
+comm5 <-(loadings(wine.pca)[1,1])^2+(loadings(wine.pca)[1,2])^2+(loadings(wine.pca)[1,3])^2+(loadings(wine.pca)[1,4])^2+(loadings(wine.pca)[1,5])^2
+comm6 <-(loadings(wine.pca)[1,1])^2+(loadings(wine.pca)[1,2])^2+(loadings(wine.pca)[1,3])^2+(loadings(wine.pca)[1,4])^2+(loadings(wine.pca)[1,5])^2+(loadings(wine.pca)[1,6])^2
+comm7 <-(loadings(wine.pca)[1,1])^2+(loadings(wine.pca)[1,2])^2+(loadings(wine.pca)[1,3])^2+(loadings(wine.pca)[1,4])^2+(loadings(wine.pca)[1,5])^2+(loadings(wine.pca)[1,6])^2+(loadings(wine.pca)[1,7])^2
+
+comm1
+comm2
+comm3
+comm4
+comm5
+comm6
+comm7
+```
+
+### PCA Results: The Scree Plot Criterion
+
+Based on scree plot, do not extract more than 6.
+
+```{r}
+plot(wine.pca$values,
+     type="b",
+     main="Scree Plot of Wine Data")
+```
+
+## Problem 29
+
+The adjusted R square for the first model explain 30.5% of variability.  The residual standard error 0.8336
+The adjusted R square for the second model explain 21.2% of variability.  The residual standard error 0.7899
+
+```{r}
+#Varimax rotation
+wine.pca.varimax <- principal(white_wine_z[,c(1:6,8:12)],
+                              nfactors=6,
+                              rotate="varimax",
+                              scores=TRUE)
+
+white_wine$PC1 <- wine.pca.varimax$scores[,1]
+white_wine$PC2 <- wine.pca.varimax$scores[,2]
+white_wine$PC3 <- wine.pca.varimax$scores[,3]
+white_wine$PC4 <- wine.pca.varimax$scores[,4]
+white_wine$PC5 <- wine.pca.varimax$scores[,5]
+white_wine$PC6 <- wine.pca.varimax$scores[,6]
+
+
+wine_regression_pca_lm <- lm(quality~PC1+PC2+PC3+PC4+PC5+PC6, data=white_wine)
+
+vif(wine_regression_pca_lm)
+
+summary(lm.fit)
+summary(wine_regression_pca_lm)
+```
+
+## Problem 30
+
+The correlation matrix show there is no correlation between the predictors.
+
+```{r}
+cor(white_wine[,25:30])
+
+corrplot(cor(white_wine[,25:30]),
+        method="number",
+        tl.cex=.65, 
+        col=colorRampPalette(c("blue","grey","red"))(200))
+```
+
+## Problem 31
+
+The adjusted R square for the first model explain 21.7% of variability.  The residual standard error 0.7876
+
+The additional component decreased the residial standard error slighly and increased the adjusted r squared but it does not justify the complexity.  The goal is to find a parsimonious model.  The model is penalized for including predictors that are not useful.
+
+```{r}
+#Varimax rotation
+wine.pca.varimax <- principal(white_wine_z[,c(1:6,8:12)],
+                              nfactors=7,
+                              rotate="varimax",
+                              scores=TRUE)
+
+white_wine$PC7 <- wine.pca.varimax$scores[,7]
+
+wine_regression_pca_lm2 <- lm(quality~PC1+PC2+PC3+PC4+PC5+PC6+PC7, data=white_wine)
+
+vif(wine_regression_pca_lm2)
+
+summary(wine_regression_pca_lm2)
+
+
+cor(white_wine[,25:31])
+
+corrplot(cor(white_wine[,25:31]),
+        method="number",
+        tl.cex=.65, 
+        col=colorRampPalette(c("blue","grey","red"))(200))
+```
+
+
+## Problem 32
+
+
+```{r}
+#Filter to white wines only
+
+red_wine <-  wine %>% filter(type == 'red') 
+
+#Remove quality and type
+red_wine <- red_wine[,c(2:13)]
+
+red_wine$alcohol_z <- scale(red_wine$alcohol , center = TRUE, scale = TRUE)
+red_wine$chlorides_z <- scale(red_wine$chlorides , center = TRUE, scale = TRUE)
+red_wine$citric.acid_z <- scale(red_wine$citric.acid , center = TRUE, scale = TRUE)
+red_wine$density_z <- scale(red_wine$density , center = TRUE, scale = TRUE)
+red_wine$fixed.acidity_z <- scale(red_wine$fixed.acidity , center = TRUE, scale = TRUE)
+red_wine$free.sulfur.dioxide_z <- scale(red_wine$free.sulfur.dioxide , center = TRUE, scale = TRUE)
+red_wine$quality_z <- scale(red_wine$quality , center = TRUE, scale = TRUE)
+red_wine$pH_z <- scale(red_wine$pH , center = TRUE, scale = TRUE)
+red_wine$residual.sugar_z <- scale(red_wine$residual.sugar , center = TRUE, scale = TRUE)
+red_wine$sulphates_z <- scale(red_wine$sulphates , center = TRUE, scale = TRUE)
+red_wine$total.sulfur.dioxide_z <- scale(red_wine$total.sulfur.dioxide , center = TRUE, scale = TRUE)
+red_wine$volatile.acidity_z <- scale(red_wine$volatile.acidity , center = TRUE, scale = TRUE)
+
+```
+
+```{r}
+#Use the cor functionto create a correlation matrix red
+
+red_wine_cor <-cor(red_wine[,c(13:18,20:24)])
+
+#Use the corrplot function to add colors to the matrix
+corrplot(red_wine_cor,
+         method="number",
+         tl.cex=.65, 
+         col=colorRampPalette(c("blue","grey","red"))(200))
+```
+
+
+```{r}
+red_wine_z <- red_wine[,c(13:24)]
+lm.fit <- lm(data=red_wine_z, quality_z~.)
+summary(lm.fit)
+vif(lm.fit)
+```
+
+
+```{r}
+wine.pca <- principal(red_wine_z[,c(1:6,8:12)],
+                  nfactors=11,
+                  rotate="none",
+                  scores=TRUE)
+wine.pca
+```
+
+### PCA Results: Eingenvalues
+
+From the Eingenvalues table, four components have eingenvalues greater than 1 (do not throw away 5). 
+
+```{r}
+wine.pca$values
+```
+
+### PCA Results: Proportion
+
+From the proportion of variance table, four components have eingenvalues greater than 1 with 71% of variabilty is explained.   For fifth components, 80% of variablilty is explained. 
+
+```{r}
+wine.pca$loadings
+```
+
+### PCA Results: Minimum Communality Criterion
+
+Based on communality criterion, extract fourth component.
+
+```{r}
+loadings(wine.pca)
+
+comm1 <-(loadings(wine.pca)[1,1])^2
+comm2 <-(loadings(wine.pca)[1,1])^2+(loadings(wine.pca)[1,2])^2
+comm3 <-(loadings(wine.pca)[1,1])^2+(loadings(wine.pca)[1,2])^2+(loadings(wine.pca)[1,3])^2
+comm4 <-(loadings(wine.pca)[1,1])^2+(loadings(wine.pca)[1,2])^2+(loadings(wine.pca)[1,3])^2+(loadings(wine.pca)[1,4])^2
+comm5 <-(loadings(wine.pca)[1,1])^2+(loadings(wine.pca)[1,2])^2+(loadings(wine.pca)[1,3])^2+(loadings(wine.pca)[1,4])^2+(loadings(wine.pca)[1,5])^2
+comm6 <-(loadings(wine.pca)[1,1])^2+(loadings(wine.pca)[1,2])^2+(loadings(wine.pca)[1,3])^2+(loadings(wine.pca)[1,4])^2+(loadings(wine.pca)[1,5])^2+(loadings(wine.pca)[1,6])^2
+comm7 <-(loadings(wine.pca)[1,1])^2+(loadings(wine.pca)[1,2])^2+(loadings(wine.pca)[1,3])^2+(loadings(wine.pca)[1,4])^2+(loadings(wine.pca)[1,5])^2+(loadings(wine.pca)[1,6])^2+(loadings(wine.pca)[1,7])^2
+
+comm1
+comm2
+comm3
+comm4
+comm5
+comm6
+comm7
+```
+
+### PCA Results: The Scree Plot Criterion
+
+Based on scree plot, do not extract more than 6.
+
+```{r}
+plot(wine.pca$values,
+     type="b",
+     main="Scree Plot of Wine Data")
+```
+
+The adjusted R square for the first model explain 37.1% of variability.  The residual standard error 0.7929
+The adjusted R square for the second model explain 34.7% of variability.  The residual standard error 0.6701
+
+```{r}
+#Varimax rotation
+wine.pca.varimax <- principal(red_wine_z[,c(1:6,8:12)],
+                              nfactors=6,
+                              rotate="varimax",
+                              scores=TRUE)
+
+red_wine$PC1 <- wine.pca.varimax$scores[,1]
+red_wine$PC2 <- wine.pca.varimax$scores[,2]
+red_wine$PC3 <- wine.pca.varimax$scores[,3]
+red_wine$PC4 <- wine.pca.varimax$scores[,4]
+red_wine$PC5 <- wine.pca.varimax$scores[,5]
+red_wine$PC6 <- wine.pca.varimax$scores[,6]
+
+
+wine_regression_pca_lm <- lm(quality~PC1+PC2+PC3+PC4+PC5+PC6, data=red_wine)
+
+vif(wine_regression_pca_lm)
+
+summary(lm.fit)
+summary(wine_regression_pca_lm)
+```
+
+The correlation matrix show there is no correlation between the predictors.
+
+```{r}
+cor(red_wine[,25:30])
+
+corrplot(cor(red_wine[,25:30]),
+        method="number",
+        tl.cex=.65, 
+        col=colorRampPalette(c("blue","grey","red"))(200))
+```
+
+
+The adjusted R square for the the model explain 35.6% of variability.  The residual standard error 0.6658
+
+The additional component decreased the residial standard error slighly and increased the adjusted r squared but it does not justify the complexity.  The goal is to find a parsimonious model.  The model is penalized for including predictors that are not useful.
+
+```{r}
+#Varimax rotation
+wine.pca.varimax <- principal(red_wine_z[,c(1:6,8:12)],
+                              nfactors=7,
+                              rotate="varimax",
+                              scores=TRUE)
+
+red_wine$PC7 <- wine.pca.varimax$scores[,7]
+
+wine_regression_pca_lm2 <- lm(quality~PC1+PC2+PC3+PC4+PC5+PC6+PC7, data=red_wine)
+
+vif(wine_regression_pca_lm2)
+
+summary(wine_regression_pca_lm2)
+
+
+cor(red_wine[,25:31])
+
+corrplot(cor(red_wine[,25:31]),
+        method="number",
+        tl.cex=.65, 
+        col=colorRampPalette(c("blue","grey","red"))(200))
+```
